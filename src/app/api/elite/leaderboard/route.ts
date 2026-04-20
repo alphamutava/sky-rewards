@@ -7,24 +7,19 @@ export const dynamic = 'force-dynamic'
 // GET /api/elite/leaderboard - Get full leaderboard with scores
 export async function GET() {
   try {
-    const result = await EliteService.getLeaderboard()
+    const leaderboard = await EliteService.getLeaderboard()
 
     return apiResponse({
-      leaderboard: result.creators.map((user: any) => ({
+      leaderboard: leaderboard.map((user: { id: string; displayName: string | null; eliteScore: { toNumber: () => number }; totalApproved: number; totalViews: number; averageRating: { toNumber: () => number }; isElite: boolean; eliteRank: number | null }) => ({
         id: user.id,
         displayName: user.displayName,
-        avatar: user.avatar,
-        eliteScore: Number(user.eliteScore),
+        eliteScore: user.eliteScore.toNumber(),
         totalApproved: user.totalApproved,
-        totalSubmissions: user.totalSubmissions,
         totalViews: user.totalViews,
-        averageRating: Number(user.averageRating),
+        averageRating: user.averageRating.toNumber(),
         isElite: user.isElite,
         eliteRank: user.eliteRank,
       })),
-      total: result.total,
-      page: result.page,
-      totalPages: result.totalPages,
     })
   } catch (error) {
     return handleApiError(error)

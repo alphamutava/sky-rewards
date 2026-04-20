@@ -18,7 +18,7 @@ export const GET = withErrorHandler(async () => {
   const session = await getServerSession(authOptions);
   if (!session) throw new AuthenticationError();
   const role = session?.user?.role as string;
-  if (role !== 'ADVERTISER') throw new AuthorizationError();
+  if (!['BRAND', 'ADVERTISER'].includes(role)) throw new AuthorizationError();
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -39,7 +39,7 @@ export const PUT = withErrorHandler(async (req: Request) => {
   const session = await getServerSession(authOptions);
   if (!session) throw new AuthenticationError();
   const role = session?.user?.role as string;
-  if (role !== 'ADVERTISER') throw new AuthorizationError();
+  if (!['BRAND', 'ADVERTISER'].includes(role)) throw new AuthorizationError();
 
   const body = await req.json();
   const result = updateBrandSchema.safeParse(body);

@@ -8,26 +8,20 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        phone: { label: "Phone", type: "tel" },
+        email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.phone || !credentials?.password) {
-          throw new Error("Phone and password are required");
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Email and password are required");
         }
 
-        // Normalize phone number to 254XXXXXXXXX
-        let phone = credentials.phone.replace(/\s+/g, "").replace(/-/g, "");
-        if (phone.startsWith("+254")) phone = phone.substring(1);
-        else if (phone.startsWith("0")) phone = "254" + phone.substring(1);
-        else if (!phone.startsWith("254")) phone = "254" + phone;
-
         const user = await prisma.user.findUnique({
-          where: { phone },
+          where: { email: credentials.email.toLowerCase() },
         });
 
         if (!user) {
-          throw new Error("Invalid phone number or password");
+          throw new Error("Invalid email or password");
         }
 
         if (user.lockedUntil && user.lockedUntil > new Date()) {
@@ -45,12 +39,12 @@ export const authOptions: NextAuthOptions = {
         const isValidPassword = await bcrypt.compare(credentials.password, user.passwordHash);
 
         if (!isValidPassword) {
-          const attempts = user.loginAttempts + 1;
-          const updateData: Record<string, unknown> = { loginAttempts: attempts };
+          const attempts = (user.failedLoginAttempts || 0) + 1;
+          const updateData: Record<string, unknown> = { failedLoginAttempts: attempts };
 
           if (attempts >= 5) {
             updateData.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
-            updateData.loginAttempts = 0;
+            updateData.failedLoginAttempts = 0;
           }
 
           await prisma.user.update({
@@ -58,13 +52,13 @@ export const authOptions: NextAuthOptions = {
             data: updateData,
           });
 
-          throw new Error("Invalid phone number or password");
+          throw new Error("Invalid email or password");
         }
 
         await prisma.user.update({
           where: { id: user.id },
           data: {
-            loginAttempts: 0,
+            failedLoginAttempts: 0,
             lockedUntil: null,
             lastLoginAt: new Date(),
           },
@@ -76,7 +70,7 @@ export const authOptions: NextAuthOptions = {
           name: user.displayName || `${user.firstName} ${user.lastName}`,
           role: user.role,
           status: user.status,
-          phoneVerified: user.phoneVerified,
+          emailVerified: user.emailVerified,
         };
       },
     }),
@@ -85,10 +79,10 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        const u = user as unknown as { role: string; status: string; phoneVerified: boolean };
+        const u = user as unknown as { role: string; status: string; emailVerified: boolean };
         token.role = u.role;
         token.status = u.status;
-        token.phoneVerified = u.phoneVerified;
+        token.emailVerified = u.emailVerified;
       }
       return token;
     },
@@ -97,7 +91,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as Record<string, unknown>).id = token.id;
         (session.user as Record<string, unknown>).role = token.role;
         (session.user as Record<string, unknown>).status = token.status;
-        (session.user as Record<string, unknown>).phoneVerified = token.phoneVerified;
+        (session.user as Record<string, unknown>).emailVerified = token.emailVerified;
       }
       return session;
     },

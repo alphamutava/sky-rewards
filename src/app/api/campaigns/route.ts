@@ -40,20 +40,8 @@ export const GET = withErrorHandler(async (req: Request) => {
   const county = url.searchParams.get("county");
   const tag = url.searchParams.get("tag");
   const sort = url.searchParams.get("sort") || "newest";
-  const mine = url.searchParams.get("mine") === "true";
 
-  const where: Record<string, unknown> = {};
-
-  if (mine) {
-    const session = await getServerSession(authOptions);
-    if (session) {
-      where.advertiserId = session.user.id;
-    } else {
-      where.status = "ACTIVE";
-    }
-  } else {
-    where.status = "ACTIVE";
-  }
+  const where: Record<string, unknown> = { status: "ACTIVE" };
 
   if (search) {
     where.OR = [
@@ -104,7 +92,7 @@ export const GET = withErrorHandler(async (req: Request) => {
 export const POST = withErrorHandler(async (req: Request) => {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role as string;
-  if (!session || role !== "ADVERTISER") {
+  if (!session || !["BRAND", "ADVERTISER"].includes(role)) {
     throw new AuthorizationError();
   }
 

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const PATCH = withErrorHandler(async (_req: Request, context) => {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role as string;
-  if (!session || !["ADVERTISER", "ADMIN", "SUPER_ADMIN"].includes(role)) {
+  if (!session || !["BRAND", "ADVERTISER", "ADMIN", "SUPER_ADMIN"].includes(role)) {
     throw new AuthorizationError();
   }
 
@@ -22,7 +22,7 @@ export const PATCH = withErrorHandler(async (_req: Request, context) => {
   if (!submission) throw new NotFoundError("Submission");
 
   // Advertiser can only approve their own campaign submissions
-  if (role === "ADVERTISER" && submission.campaign.advertiserId !== session.user.id) {
+  if (["BRAND", "ADVERTISER"].includes(role) && submission.campaign.advertiserId !== session.user.id) {
     throw new AuthorizationError();
   }
 

@@ -13,9 +13,6 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 export default function RegisterCreatorPage() {
   const router = useRouter();
   const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    phone: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -43,10 +40,7 @@ export default function RegisterCreatorPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          firstName: form.firstName,
-          lastName: form.lastName,
-          phone: form.phone,
-          email: form.email || undefined,
+          email: form.email,
           password: form.password,
           role: "CREATOR",
         }),
@@ -80,28 +74,14 @@ export default function RegisterCreatorPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" placeholder="John" value={form.firstName} onChange={(e) => update("firstName", e.target.value)} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" placeholder="Doe" value={form.lastName} onChange={(e) => update("lastName", e.target.value)} required />
-                </div>
-              </div>
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" type="tel" placeholder="07XX XXX XXX" value={form.phone} onChange={(e) => update("phone", e.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email <span className="text-gray-400 text-xs">(optional)</span></Label>
-                <Input id="email" type="email" placeholder="you@example.com" value={form.email} onChange={(e) => update("email", e.target.value)} />
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" placeholder="you@example.com" value={form.email} onChange={(e) => update("email", e.target.value)} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
-                  <Input id="password" type={showPassword ? "text" : "password"} placeholder="Min 8 characters" value={form.password} onChange={(e) => update("password", e.target.value)} required />
+                  <Input id="password" type={showPassword ? "text" : "password"} placeholder="Min 8 chars, uppercase, number, special" value={form.password} onChange={(e) => update("password", e.target.value)} required />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>

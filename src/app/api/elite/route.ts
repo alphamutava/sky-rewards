@@ -12,16 +12,15 @@ export async function GET(req: NextRequest) {
     const elite = await EliteService.getElite100()
 
     return apiResponse({
-      elite: elite.map((e: any) => ({
+      elite: elite.map((e: { id: string; displayName: string | null; isElite: boolean; eliteRank: number | null; eliteScore: { toNumber: () => number }; totalEarned: { toNumber: () => number }; totalApproved: number; averageRating: { toNumber: () => number } }) => ({
         id: e.id,
         displayName: e.displayName,
-        avatar: e.avatar,
+        isElite: e.isElite,
         eliteRank: e.eliteRank,
-        eliteScore: Number(e.eliteScore),
-        eliteJoinedAt: e.eliteJoinedAt,
+        eliteScore: e.eliteScore.toNumber(),
+        totalEarned: e.totalEarned.toNumber(),
         totalApproved: e.totalApproved,
-        totalViews: e.totalViews,
-        averageRating: Number(e.averageRating),
+        averageRating: e.averageRating.toNumber(),
       })),
       total: elite.length,
     })
@@ -46,9 +45,9 @@ export async function POST(req: NextRequest) {
     const result = await EliteService.applyForElite(token.sub)
 
     return apiResponse({
-      message: result.message,
-      currentScore: result.currentScore,
-      totalApproved: result.totalApproved,
+      message: 'Application submitted successfully',
+      currentScore: result.score.toNumber(),
+      qualified: result.qualified,
     })
   } catch (error) {
     return handleApiError(error)

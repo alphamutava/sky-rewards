@@ -14,7 +14,7 @@ const rejectSchema = z.object({
 export const PATCH = withErrorHandler(async (req: Request, context) => {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role as string;
-  if (!session || !["ADVERTISER", "ADMIN", "SUPER_ADMIN"].includes(role)) {
+  if (!session || !["BRAND", "ADVERTISER", "ADMIN", "SUPER_ADMIN"].includes(role)) {
     throw new AuthorizationError();
   }
 
@@ -28,7 +28,7 @@ export const PATCH = withErrorHandler(async (req: Request, context) => {
   });
 
   if (!submission) throw new NotFoundError("Submission");
-  if (role === "ADVERTISER" && submission.campaign.advertiserId !== session.user.id) {
+  if (["BRAND", "ADVERTISER"].includes(role) && submission.campaign.advertiserId !== session.user.id) {
     throw new AuthorizationError();
   }
   if (!["PENDING", "IN_REVIEW", "FLAGGED"].includes(submission.status)) {

@@ -9,7 +9,7 @@ declare module "next-auth" {
       image?: string | null;
       role: string;
       status: string;
-      phoneVerified: boolean;
+      emailVerified: boolean;
     };
   }
 }
@@ -19,6 +19,6 @@ declare module "next-auth/jwt" {
     id: string;
     role: string;
     status: string;
-    phoneVerified: boolean;
+    emailVerified: boolean;
   }
 }

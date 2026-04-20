@@ -36,7 +36,7 @@ export const GET = withErrorHandler(async (req: Request) => {
   const role = session.user.role as string;
   if (role === "CREATOR") {
     where.creatorId = session.user.id;
-  } else if (role === "ADVERTISER") {
+  } else if (["ADVERTISER", "BRAND"].includes(role)) {
     where.campaign = { advertiserId: session.user.id };
   } else if (!["ADMIN", "SUPER_ADMIN"].includes(role)) {
     throw new AuthorizationError();

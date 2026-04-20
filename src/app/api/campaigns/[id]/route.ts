@@ -25,7 +25,7 @@ export const GET = withErrorHandler(async (_req: Request, context) => {
 export const PUT = withErrorHandler(async (req: Request, context) => {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role as string;
-  if (!session || role !== "ADVERTISER") throw new AuthorizationError();
+  if (!session || !["BRAND", "ADVERTISER"].includes(role)) throw new AuthorizationError();
 
   const { id } = context!.params;
   const campaign = await prisma.campaign.findUnique({
