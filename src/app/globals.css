@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #0D1B2A;
+  --secondary: #1B263B;
+  --accent: #E63946;
+  --success: #2D6A4F;
+  --warning: #E9C46A;
+  --bg-light: #F8F9FA;
+  --bg-card: #FFFFFF;
+  --text-primary: #1A1A2E;
+  --text-muted: #6B7280;
+  --border: #E5E7EB;
+}
+
+@layer base {
+  * {
+    @apply border-gray-200;
+  }
+  body {
+    @apply bg-gray-50 text-gray-900;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  .gradient-primary {
+    @apply bg-gradient-to-r from-[#0D1B2A] to-[#1B263B];
+  }
+  .gradient-accent {
+    @apply bg-gradient-to-r from-[#E63946] to-[#c1121f];
+  }
+}
