@@ -1,11 +1,13 @@
-const SAFARICOM_IP_RANGES = (process.env.MPESA_ALLOWED_IPS || "").split(",").map((ip) => ip.trim());
+const SAFARICOM_IP_RANGES = (process.env.MPESA_ALLOWED_IPS || "").split(",").map((ip) => ip.trim()).filter(Boolean);
+
+function ipToNumber(ip: string): number {
+  return ip.split(".").reduce((sum, octet) => (sum >>> 0) * 256 + parseInt(octet), 0) >>> 0;
+}
 
 function isIpInCidr(ip: string, cidr: string): boolean {
   const [range, bits] = cidr.split("/");
-  const mask = ~(2 ** (32 - parseInt(bits)) - 1);
-  const ipNum = ip.split(".").reduce((sum, octet) => (sum << 8) + parseInt(octet), 0);
-  const rangeNum = range.split(".").reduce((sum, octet) => (sum << 8) + parseInt(octet), 0);
-  return (ipNum & mask) === (rangeNum & mask);
+  const mask = bits ? (~0 << (32 - parseInt(bits))) >>> 0 : 0xFFFFFFFF;
+  return (ipToNumber(ip) & mask) === (ipToNumber(range) & mask);
 }
 
 export function validateMpesaCallback(request: Request): {
@@ -13,9 +15,15 @@ export function validateMpesaCallback(request: Request): {
   reason?: string;
   ipAddress?: string;
 } {
+  const expectedSecret = process.env.MPESA_CALLBACK_SECRET;
+  if (!expectedSecret) {
+    console.error("[M-Pesa] MPESA_CALLBACK_SECRET not configured — rejecting callback");
+    return { valid: false, reason: "Callback secret not configured" };
+  }
+
   const url = new URL(request.url);
   const secret = url.searchParams.get("secret");
-  if (secret !== process.env.MPESA_CALLBACK_SECRET) {
+  if (secret !== expectedSecret) {
     return { valid: false, reason: "Invalid callback secret" };
   }
 
@@ -43,3 +51,4 @@ export function validateMpesaCallback(request: Request): {
 
   return { valid: true, ipAddress: sourceIp };
 }
+

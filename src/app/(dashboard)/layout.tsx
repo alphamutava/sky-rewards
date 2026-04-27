@@ -3,7 +3,7 @@ import { Header } from "@/components/layout/header";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-bg text-white font-sans animate-fade">
       <Sidebar />
       <div className="lg:pl-64">
         <Header />

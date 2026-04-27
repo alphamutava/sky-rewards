@@ -1,92 +1,10 @@
 generator client {
   provider = "prisma-client-js"
+  engineType = "library"
 }
 
 datasource db {
   provider = "postgresql"
-}
-
-// ======================== ENUMS ========================
-
-enum UserRole {
-  VIEWER
-  CREATOR
-  ADVERTISER
-  ADMIN
-  SUPER_ADMIN
-}
-
-enum UserStatus {
-  ACTIVE
-  SUSPENDED
-  BANNED
-  PENDING_VERIFICATION
-}
-
-enum CampaignStatus {
-  DRAFT
-  PENDING_APPROVAL
-  ACTIVE
-  PAUSED
-  COMPLETED
-  EXPIRED
-  CANCELLED
-}
-
-enum CampaignType {
-  VIDEO
-  PHOTO
-  ARTICLE
-  MIXED
-}
-
-enum SubmissionStatus {
-  PENDING
-  IN_REVIEW
-  APPROVED
-  REJECTED
-  FLAGGED
-  REVISION_REQUESTED
-}
-
-enum TransactionType {
-  DEPOSIT
-  WITHDRAWAL
-  CAMPAIGN_FUND
-  CREATOR_PAYOUT
-  VIEW_REWARD
-  PLATFORM_COMMISSION
-  ELITE_BONUS
-  REFUND
-  ADJUSTMENT
-}
-
-enum TransactionStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-  REVERSED
-  CANCELLED
-}
-
-enum PaymentMethod {
-  MPESA_STK
-  MPESA_B2C
-  WALLET
-  BANK_TRANSFER
-}
-
-enum NotificationType {
-  SUBMISSION_APPROVED
-  SUBMISSION_REJECTED
-  PAYMENT_RECEIVED
-  PAYOUT_SENT
-  CAMPAIGN_FUNDED
-  CAMPAIGN_EXPIRED
-  ELITE_PROMOTED
-  ELITE_DEMOTED
-  SYSTEM
 }
 
 // ======================== USER ========================
@@ -94,37 +12,37 @@ enum NotificationType {
 model User {
   id                String           @id @default(cuid())
   email             String?          @unique
-  phone             String           @unique
+  phone             String?          @unique
   phoneVerified     Boolean          @default(false)
   passwordHash      String
-  firstName         String
-  lastName          String
+  firstName         String?
+  lastName          String?
   displayName       String?
   avatar            String?
   bio               String?
-  role              UserRole         @default(VIEWER)
-  status            UserStatus       @default(PENDING_VERIFICATION)
+  role              String           @default("VIEWER")
+  status            String           @default("PENDING_VERIFICATION")
   county            String?
   city              String?
   dateOfBirth       DateTime?
   nationalId        String?          @unique
   
   // Wallet
-  walletBalance     Decimal          @default(0) @db.Decimal(12, 2)
-  totalEarned       Decimal          @default(0) @db.Decimal(12, 2)
-  totalWithdrawn    Decimal          @default(0) @db.Decimal(12, 2)
+  walletBalance     Decimal          @default(0)
+  totalEarned       Decimal          @default(0)
+  totalWithdrawn    Decimal          @default(0)
   
   // Elite
   isElite           Boolean          @default(false)
   eliteRank         Int?
   eliteJoinedAt     DateTime?
-  eliteScore        Decimal          @default(0) @db.Decimal(10, 2)
+  eliteScore        Decimal          @default(0)
   
   // Tracking
   totalViews        Int              @default(0)
   totalSubmissions  Int              @default(0)
   totalApproved     Int              @default(0)
-  averageRating     Decimal          @default(0) @db.Decimal(3, 2)
+  averageRating     Decimal          @default(0)
   
   // Auth
   otpCode           String?
@@ -158,16 +76,16 @@ model Campaign {
   title             String
   slug              String           @unique
   description       String
-  brief             String           @db.Text
-  type              CampaignType
-  status            CampaignStatus   @default(DRAFT)
+  brief             String
+  type              String
+  status            String           @default("DRAFT")
   
   // Budget
-  totalBudget       Decimal          @db.Decimal(12, 2)
-  remainingBudget   Decimal          @db.Decimal(12, 2)
-  platformFee       Decimal          @db.Decimal(12, 2)
-  rewardPerView     Decimal          @default(0.50) @db.Decimal(8, 2)
-  creatorReward     Decimal          @db.Decimal(10, 2)
+  totalBudget       Decimal
+  remainingBudget   Decimal
+  platformFee       Decimal
+  rewardPerView     Decimal          @default(0.50)
+  creatorReward     Decimal
   maxSubmissions    Int              @default(50)
   maxViewsPerSubmission Int          @default(10000)
   
@@ -176,12 +94,12 @@ model Campaign {
   targetAgeMin      Int?
   targetAgeMax      Int?
   targetGender      String?
-  tags              String[]
+  tags              Json             @default("[]")
   
   // Media
   coverImage        String?
-  guidelines        String?          @db.Text
-  sampleMedia       String[]
+  guidelines        String?
+  sampleMedia       Json             @default("[]")
   
   // Dates
   startDate         DateTime
@@ -195,7 +113,7 @@ model Campaign {
   totalSubmissions  Int              @default(0)
   approvedSubmissions Int            @default(0)
   totalViews        Int              @default(0)
-  totalSpent        Decimal          @default(0) @db.Decimal(12, 2)
+  totalSpent        Decimal          @default(0)
   
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
@@ -226,16 +144,16 @@ model Submission {
   fileSize          Int?
   
   // Status
-  status            SubmissionStatus @default(PENDING)
+  status            String           @default("PENDING")
   rejectionReason   String?
   revisionNotes     String?
-  qualityScore      Decimal?         @db.Decimal(3, 2)
+  qualityScore      Decimal?
   
   // Stats
   viewCount         Int              @default(0)
   uniqueViewers     Int              @default(0)
-  totalEarned       Decimal          @default(0) @db.Decimal(12, 2)
-  creatorEarned     Decimal          @default(0) @db.Decimal(12, 2)
+  totalEarned       Decimal          @default(0)
+  creatorEarned     Decimal          @default(0)
   
   // Relations
   creatorId         String
@@ -265,13 +183,14 @@ model Review {
   reviewerId        String
   reviewer          User             @relation(fields: [reviewerId], references: [id])
   
-  decision          SubmissionStatus
-  qualityScore      Decimal?         @db.Decimal(3, 2)
+  decision          String
+  qualityScore      Decimal?
   feedback          String?
   
   createdAt         DateTime         @default(now())
   
   @@index([submissionId])
+  @@index([reviewerId])
   @@map("reviews")
 }
 
@@ -287,8 +206,8 @@ model View {
   
   // Tracking
   watchDuration     Int              @default(0)
-  completionPercent Decimal          @default(0) @db.Decimal(5, 2)
-  earned            Decimal          @default(0) @db.Decimal(8, 2)
+  completionPercent Decimal          @default(0)
+  earned            Decimal          @default(0)
   ipAddress         String?
   userAgent         String?
   
@@ -301,6 +220,7 @@ model View {
   @@unique([submissionId, viewerId])
   @@index([viewerId, createdAt])
   @@index([submissionId])
+  @@index([ipAddress, createdAt])
   @@map("views")
 }
 
@@ -315,12 +235,12 @@ model Transaction {
   mpesaRequestId    String?
   
   // Details
-  type              TransactionType
-  status            TransactionStatus @default(PENDING)
-  method            PaymentMethod
-  amount            Decimal           @db.Decimal(12, 2)
-  fee               Decimal           @default(0) @db.Decimal(10, 2)
-  netAmount         Decimal           @db.Decimal(12, 2)
+  type              String
+  status            String            @default("PENDING")
+  method            String
+  amount            Decimal
+  fee               Decimal           @default(0)
+  netAmount         Decimal
   
   // Parties
   userId            String
@@ -336,15 +256,17 @@ model Transaction {
   // Status tracking
   failureReason     String?
   completedAt       DateTime?
-  metadata          Json?
+  metadata          Json?            @default("{}")
   
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   
   @@index([userId, type])
   @@index([status])
+  @@index([status, type, method])
   @@index([referenceCode])
   @@index([mpesaReceiptNo])
+  @@index([mpesaRequestId])
   @@index([campaignId])
   @@map("transactions")
 }
@@ -357,10 +279,10 @@ model Notification {
   userId            String
   user              User             @relation(fields: [userId], references: [id])
   
-  type              NotificationType
+  type              String
   title             String
   message           String
-  data              Json?
+  data              Json?            @default("{}")
   read              Boolean          @default(false)
   readAt            DateTime?
   

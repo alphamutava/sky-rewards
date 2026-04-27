@@ -39,12 +39,12 @@ export const authOptions: NextAuthOptions = {
         const isValidPassword = await bcrypt.compare(credentials.password, user.passwordHash);
 
         if (!isValidPassword) {
-          const attempts = (user.failedLoginAttempts || 0) + 1;
-          const updateData: Record<string, unknown> = { failedLoginAttempts: attempts };
+          const attempts = (user.loginAttempts || 0) + 1;
+          const updateData: Record<string, unknown> = { loginAttempts: attempts };
 
           if (attempts >= 5) {
             updateData.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
-            updateData.failedLoginAttempts = 0;
+            updateData.loginAttempts = 0;
           }
 
           await prisma.user.update({
@@ -58,7 +58,7 @@ export const authOptions: NextAuthOptions = {
         await prisma.user.update({
           where: { id: user.id },
           data: {
-            failedLoginAttempts: 0,
+            loginAttempts: 0,
             lockedUntil: null,
             lastLoginAt: new Date(),
           },
@@ -67,10 +67,10 @@ export const authOptions: NextAuthOptions = {
         return {
           id: user.id,
           email: user.email,
-          name: user.displayName || `${user.firstName} ${user.lastName}`,
+          name: user.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email,
           role: user.role,
           status: user.status,
-          emailVerified: user.emailVerified,
+          phoneVerified: user.phoneVerified,
         };
       },
     }),
@@ -79,10 +79,10 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        const u = user as unknown as { role: string; status: string; emailVerified: boolean };
+        const u = user as unknown as { role: string; status: string; phoneVerified: boolean };
         token.role = u.role;
         token.status = u.status;
-        token.emailVerified = u.emailVerified;
+        token.phoneVerified = u.phoneVerified;
       }
       return token;
     },
@@ -91,7 +91,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as Record<string, unknown>).id = token.id;
         (session.user as Record<string, unknown>).role = token.role;
         (session.user as Record<string, unknown>).status = token.status;
-        (session.user as Record<string, unknown>).emailVerified = token.emailVerified;
+        (session.user as Record<string, unknown>).phoneVerified = token.phoneVerified;
       }
       return session;
     },

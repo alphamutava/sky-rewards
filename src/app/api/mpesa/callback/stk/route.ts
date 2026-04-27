@@ -29,26 +29,15 @@ export async function POST(request: Request) {
       },
     });
 
-    // Find the pending deposit transaction by metadata
-    const pendingTx = await prisma.transaction.findFirst({
+    // Find the transaction by checkpoint request ID (stored as mpesaRequestId during deposit)
+    const txToProcess = await prisma.transaction.findFirst({
       where: {
         status: "PENDING",
         type: "DEPOSIT",
         method: "MPESA_STK",
+        mpesaRequestId: stkCallback.CheckoutRequestID,
       },
-      orderBy: { createdAt: "desc" },
     });
-
-    // Try to match by checkout request ID stored in metadata
-    const allPending = await prisma.transaction.findMany({
-      where: { status: "PENDING", type: "DEPOSIT", method: "MPESA_STK" },
-    });
-    const matchedTx = allPending.find((tx) => {
-      const meta = tx.metadata as any;
-      return meta?.checkoutRequestId === stkCallback.CheckoutRequestID;
-    });
-
-    const txToProcess = matchedTx || pendingTx;
 
     if (stkCallback.ResultCode === 0 && txToProcess) {
       const receiptNo = getMetaValue("MpesaReceiptNumber")?.toString();

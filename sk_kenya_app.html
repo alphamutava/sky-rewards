@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SK Kenya — Create. Post. Earn.</title>
+    <meta name="description" content="Kenya's #1 creator monetization platform. Earn real money posting clips on TikTok, YouTube & Instagram. Get paid via M-Pesa.">
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0A0A0A; --card: #141414; --card2: #1a1a1a; --border: #222; --border2: #333;
+            --primary: #F97316; --primary-hover: #ea580c; --green: #10B981; --red: #EF4444;
+            --yellow: #EAB308; --blue: #3B82F6; --text: #fff; --muted: #888; --muted2: #666;
+        }
+        body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; line-height: 1.5; }
+        h1,h2,h3,h4,h5,h6 { font-family: 'Bebas Neue', sans-serif; letter-spacing: 1px; font-weight: 400; line-height: 0.95; }
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: var(--bg); } ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        input, select, textarea { font-family: 'DM Sans', sans-serif; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes slideUp { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-fade { animation: fadeIn 0.4s ease-out; }
+        .animate-slide { animation: slideUp 0.35s cubic-bezier(.16,1,.3,1); }
+        .animate-pulse { animation: pulse 2s infinite; }
+        .spinner { width: 24px; height: 24px; border: 3px solid rgba(255,255,255,.2); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useMemo, useCallback, useRef } = React;
+
+/* ═══════════════════════════════════════════
+   UTILITY HELPERS
+   ═══════════════════════════════════════════ */
+const KSh = (n) => 'KSh ' + Number(n||0).toLocaleString('en-KE');
+const shortNum = (n) => n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : String(n);
+const pct = (a,b) => b ? Math.min(100, Math.round((a/b)*100)) : 0;
+const ago = (d) => { const s = Math.floor((Date.now() - new Date(d).getTime())/1000); if(s<60) return 'just now'; if(s<3600) return Math.floor(s/60)+'m ago'; if(s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; };
+const detectPlatform = (url) => { if(!url) return 'TikTok'; if(url.includes('tiktok')) return 'TikTok'; if(url.includes('youtube')||url.includes('youtu.be')) return 'YouTube'; if(url.includes('instagram')) return 'Instagram'; if(url.includes('twitter')||url.includes('x.com')) return 'X'; return 'TikTok'; };
+const uid = () => 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
+
+/* ═══════════════════════════════════════════
+   LOCAL STORAGE DB
+   ═══════════════════════════════════════════ */
+const DB = {
+    get: (k, fb=[]) => { try { return JSON.parse(localStorage.getItem('sk_'+k)) || fb; } catch { return fb; } },
+    set: (k, v) => localStorage.setItem('sk_'+k, JSON.stringify(v)),
+    clear: () => { ['users','campaigns','submissions','notifications','init'].forEach(k => localStorage.removeItem('sk_'+k)); }
+};
+
+/* ═══════════════════════════════════════════
+   SEED DATA
+   ═══════════════════════════════════════════ */
+const SEED = {
+    users: [
+        { id:'u1', name:'Brian Kiprop', type:'creator', phone:'0712345678', balance:8750, verified:true, avatar:'BK', totalViews:4200000, campaignsCompleted:9, approvalRate:87, platforms:['TikTok','YouTube','Instagram'], bio:'Nairobi-based content creator | 200K+ followers | Tech & Lifestyle' },
+        { id:'u2', name:'Amina Hassan', type:'creator', phone:'0798765432', balance:3200, verified:false, avatar:'AH', totalViews:890000, campaignsCompleted:4, approvalRate:92, platforms:['TikTok','Instagram'], bio:'Mombasa creator | Fashion & Food content' },
+        { id:'u3', name:'Safaricom', type:'brand', phone:'0700000001', balance:500000, verified:true, avatar:'SA' },
+        { id:'u4', name:'Equity Bank', type:'brand', phone:'0700000002', balance:350000, verified:true, avatar:'EQ' },
+        { id:'u5', name:'Admin', type:'admin', phone:'0700000000', balance:0, verified:true, avatar:'AD' },
+    ],
+    campaigns: [
+        { id:'c1', brandId:'u3', brandName:'Safaricom', title:'M-Pesa Global Go', type:'CLIPPING', category:'Tech', rate:350, bonus:0, budget:120000, spent:42000, platforms:['TikTok','YouTube'], guidelines:'Create 30-60 second clips showing M-Pesa international transfers. Must mention "Send money globally with M-Pesa". Use trending audio.', dos:'Show the app UI, mention speed & low fees, use trending sounds', donts:'No competitor mentions, no fake transactions, no misleading claims', assetLink:'https://drive.google.com/safaricom-assets', minViews:1000, status:'ACTIVE', createdAt:'2026-04-01T10:00:00Z' },
+        { id:'c2', brandId:'u4', brandName:'Equity Bank', title:'Wings to Fly Scholarships', type:'UGC', category:'Finance', rate:500, bonus:800, budget:200000, spent:18500, platforms:['YouTube'], guidelines:'Share your education story or how Wings to Fly changed a life you know. Authentic, emotional content preferred. 60-90 seconds.', dos:'Be authentic, share real stories, mention application dates', donts:'No false claims about guaranteed scholarships', assetLink:'', minViews:2000, status:'ACTIVE', createdAt:'2026-04-05T14:00:00Z' },
+        { id:'c3', brandId:'u3', brandName:'Naivas', title:'Festive Season Deals', type:'CLIPPING', category:'Food', rate:280, bonus:0, budget:80000, spent:80000, platforms:['TikTok','Instagram'], guidelines:'Showcase Naivas festive offers. Visit a Naivas store and film the deals. Use hashtag #NaivasDeals.', dos:'Film in-store, show price tags, be energetic', donts:'No filming other customers without consent', assetLink:'https://drive.google.com/naivas-footage', minViews:500, status:'PAUSED', createdAt:'2026-03-20T09:00:00Z' },
+        { id:'c4', brandId:'u3', brandName:'Betika', title:'Live Betting Highlights', type:'CLIPPING', category:'Sports', rate:320, bonus:0, budget:150000, spent:24000, platforms:['TikTok'], guidelines:'Create exciting clips from live sports events showing Betika odds and wins. Must include responsible gambling message.', dos:'Show excitement, include "Bet Responsibly, 18+" disclaimer', donts:'No targeting underage audiences, no guaranteed wins claims', assetLink:'https://drive.google.com/betika-clips', minViews:1000, status:'ACTIVE', createdAt:'2026-04-10T11:00:00Z' },
+        { id:'c5', brandId:'u4', brandName:'Nation Media', title:'Breaking News Clips', type:'UGC', category:'Entertainment', rate:420, bonus:0, budget:90000, spent:8400, platforms:['YouTube','X'], guidelines:'Create commentary and reaction videos on trending Kenyan news stories from Nation Media. Give your unique perspective.', dos:'Credit Nation Media as source, add your analysis', donts:'No spreading misinformation, no hate speech', assetLink:'', minViews:1500, status:'ACTIVE', createdAt:'2026-04-12T16:00:00Z' },
+        { id:'c6', brandId:'u4', brandName:'Airtel Kenya', title:'Airtel Money Campaign', type:'CLIPPING', category:'Tech', rate:300, bonus:0, budget:60000, spent:3000, platforms:['TikTok','YouTube','Instagram','X'], guidelines:'Showcase Airtel Money features — sending, receiving, paying bills. Must show the app interface.', dos:'Demonstrate actual app features, be clear and concise', donts:'No bashing competitors, no false transaction amounts', assetLink:'https://drive.google.com/airtel-assets', minViews:500, status:'ACTIVE', createdAt:'2026-04-15T08:00:00Z' },
+    ],
+    submissions: [
+        { id:'s1', campaignId:'c1', campaignName:'M-Pesa Global Go', creatorId:'u1', creatorName:'Brian Kiprop', videoUrl:'https://www.tiktok.com/@briankiprop/video/7350001', platform:'TikTok', views:45000, status:'APPROVED', earned:15750, submittedAt:'2026-04-08T10:30:00Z' },
+        { id:'s2', campaignId:'c1', campaignName:'M-Pesa Global Go', creatorId:'u2', creatorName:'Amina Hassan', videoUrl:'https://www.tiktok.com/@aminah/video/7350002', platform:'TikTok', views:12000, status:'APPROVED', earned:4200, submittedAt:'2026-04-09T14:00:00Z' },
+        { id:'s3', campaignId:'c2', campaignName:'Wings to Fly Scholarships', creatorId:'u1', creatorName:'Brian Kiprop', videoUrl:'https://youtube.com/shorts/wingstofly1', platform:'YouTube', views:28000, status:'PENDING', earned:14800, submittedAt:'2026-04-18T09:00:00Z' },
+        { id:'s4', campaignId:'c2', campaignName:'Wings to Fly Scholarships', creatorId:'u2', creatorName:'Amina Hassan', videoUrl:'https://youtube.com/shorts/wingstofly2', platform:'YouTube', views:8500, status:'UNDER_REVIEW', earned:5050, submittedAt:'2026-04-19T11:30:00Z' },
+        { id:'s5', campaignId:'c4', campaignName:'Live Betting Highlights', creatorId:'u1', creatorName:'Brian Kiprop', videoUrl:'https://www.tiktok.com/@briankiprop/video/7360001', platform:'TikTok', views:32000, status:'APPROVED', earned:10240, submittedAt:'2026-04-12T16:00:00Z' },
+        { id:'s6', campaignId:'c3', campaignName:'Festive Season Deals', creatorId:'u1', creatorName:'Brian Kiprop', videoUrl:'https://www.instagram.com/reel/naivas1', platform:'Instagram', views:2100, status:'REJECTED', earned:0, submittedAt:'2026-04-01T08:00:00Z' },
+        { id:'s7', campaignId:'c5', campaignName:'Breaking News Clips', creatorId:'u1', creatorName:'Brian Kiprop', videoUrl:'https://youtube.com/shorts/nation1', platform:'YouTube', views:18000, status:'PENDING', earned:7560, submittedAt:'2026-04-20T13:00:00Z' },
+        { id:'s8', campaignId:'c6', campaignName:'Airtel Money Campaign', creatorId:'u2', creatorName:'Amina Hassan', videoUrl:'https://www.tiktok.com/@aminah/video/7380001', platform:'TikTok', views:5200, status:'PENDING', earned:1560, submittedAt:'2026-04-21T10:00:00Z' },
+    ],
+    notifications: [
+        { id:'n1', userId:'u1', message:'Your M-Pesa Global Go submission was APPROVED! +KSh 15,750 🎉', read:false, createdAt:'2026-04-20T10:00:00Z', type:'success' },
+        { id:'n2', userId:'u1', message:'Live Betting Highlights submission was APPROVED! +KSh 10,240', read:false, createdAt:'2026-04-19T15:00:00Z', type:'success' },
+        { id:'n3', userId:'u1', message:'You have 2 submissions pending review', read:true, createdAt:'2026-04-18T09:00:00Z', type:'info' },
+        { id:'n4', userId:'u1', message:'Festive Season Deals submission was REJECTED — content did not meet guidelines', read:true, createdAt:'2026-04-05T12:00:00Z', type:'error' },
+        { id:'n5', userId:'u3', message:'New submission received for M-Pesa Global Go from Amina Hassan', read:false, createdAt:'2026-04-20T14:00:00Z', type:'info' },
+        { id:'n6', userId:'u3', message:'Festive Season Deals campaign budget exhausted — campaign auto-paused', read:true, createdAt:'2026-04-15T08:00:00Z', type:'warning' },
+        { id:'n7', userId:'u2', message:'Your M-Pesa Global Go submission was APPROVED! +KSh 4,200', read:false, createdAt:'2026-04-19T14:00:00Z', type:'success' },
+    ]
+};
+
+/* ═══════════════════════════════════════════
+   ICON COMPONENTS (inline SVG)
+   ═══════════════════════════════════════════ */
+const Icon = ({d, size=20, color='currentColor', sw=2, ...p}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" {...p}>{typeof d==='string'?<path d={d}/>:d}</svg>;
+const Icons = {
+    bell: (p) => <Icon {...p} d={<><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>}/>,
+    x: (p) => <Icon {...p} d={<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>}/>,
+    check: (p) => <Icon {...p} d={<polyline points="20 6 9 17 4 12"/>}/>,
+    checkCircle: (p) => <Icon {...p} d={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>}/>,
+    search: (p) => <Icon {...p} d={<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>}/>,
+    filter: (p) => <Icon {...p} d={<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>}/>,
+    chevDown: (p) => <Icon {...p} d="M6 9l6 6 6-6"/>,
+    chevRight: (p) => <Icon {...p} d="M9 18l6-6-6-6"/>,
+    chevLeft: (p) => <Icon {...p} d="M15 18l-6-6 6-6"/>,
+    plus: (p) => <Icon {...p} d={<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>}/>,
+    dollar: (p) => <Icon {...p} d={<><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>}/>,
+    eye: (p) => <Icon {...p} d={<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>}/>,
+    send: (p) => <Icon {...p} d={<><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>}/>,
+    user: (p) => <Icon {...p} d={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>}/>,
+    users: (p) => <Icon {...p} d={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>}/>,
+    shield: (p) => <Icon {...p} d={<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>}/>,
+    shieldCheck: (p) => <Icon {...p} d={<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></>}/>,
+    phone: (p) => <Icon {...p} d={<><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></>}/>,
+    link: (p) => <Icon {...p} d={<><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></>}/>,
+    ext: (p) => <Icon {...p} d={<><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></>}/>,
+    flag: (p) => <Icon {...p} d={<><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></>}/>,
+    pause: (p) => <Icon {...p} d={<><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></>}/>,
+    play: (p) => <Icon {...p} d={<polygon points="5 3 19 12 5 21 5 3"/>}/>,
+    edit: (p) => <Icon {...p} d={<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>}/>,
+    trash: (p) => <Icon {...p} d={<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>}/>,
+    trending: (p) => <Icon {...p} d={<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>}/>,
+    bar: (p) => <Icon {...p} d={<><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>}/>,
+    menu: (p) => <Icon {...p} d={<><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></>}/>,
+    home: (p) => <Icon {...p} d={<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>}/>,
+    grid: (p) => <Icon {...p} d={<><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></>}/>,
+    award: (p) => <Icon {...p} d={<><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></>}/>,
+    clock: (p) => <Icon {...p} d={<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>}/>,
+    wallet: (p) => <Icon {...p} d={<><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></>}/>,
+};
+
+/* ═══════════════════════════════════════════
+   SHARED UI COMPONENTS
+   ═══════════════════════════════════════════ */
+const Badge = ({children, color='gray', ...p}) => {
+    const colors = { green:'rgba(16,185,129,.15)', red:'rgba(239,68,68,.15)', yellow:'rgba(234,179,8,.15)', blue:'rgba(59,130,246,.15)', orange:'rgba(249,115,22,.15)', gray:'rgba(255,255,255,.08)', purple:'rgba(168,85,247,.15)' };
+    const textColors = { green:'#10B981', red:'#EF4444', yellow:'#EAB308', blue:'#3B82F6', orange:'#F97316', gray:'#aaa', purple:'#A855F7' };
+    return <span style={{background:colors[color]||colors.gray, color:textColors[color]||textColors.gray, padding:'3px 10px', borderRadius:6, fontSize:11, fontWeight:700, letterSpacing:'.5px', textTransform:'uppercase', whiteSpace:'nowrap', display:'inline-block'}} {...p}>{children}</span>;
+};
+const Btn = ({children, variant='primary', size='md', disabled, loading, onClick, style={}, ...p}) => {
+    const base = {border:'none', borderRadius:size==='sm'?8:size==='lg'?16:12, cursor:disabled?'not-allowed':'pointer', fontWeight:700, fontFamily:'DM Sans,sans-serif', transition:'all .2s', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:8, opacity:disabled?.5:1, whiteSpace:'nowrap'};
+    const sizes = { sm:{padding:'6px 14px',fontSize:13}, md:{padding:'10px 20px',fontSize:14}, lg:{padding:'14px 28px',fontSize:16}, xl:{padding:'16px 36px',fontSize:18} };
+    const variants = {
+        primary: {background:'var(--primary)', color:'#fff'}, ghost: {background:'transparent', color:'var(--muted)', border:'1px solid var(--border2)'},
+        outline: {background:'transparent', color:'#fff', border:'1px solid var(--border2)'}, white: {background:'#fff', color:'#000'},
+        green: {background:'var(--green)', color:'#fff'}, red: {background:'var(--red)', color:'#fff'}, danger: {background:'rgba(239,68,68,.15)', color:'var(--red)', border:'1px solid rgba(239,68,68,.2)'},
+    };
+    return <button onClick={disabled?undefined:onClick} style={{...base,...sizes[size],...variants[variant],...style}} {...p}>{loading?<span className="spinner"/>:null}{children}</button>;
+};
+const StatCard = ({label, value, sub, icon:I, color='#fff'}) => (
+    <div style={{background:'var(--card)', border:'1px solid var(--border)', borderRadius:20, padding:'20px 24px', display:'flex', flexDirection:'column', gap:4}}>
+        <div style={{fontSize:11, color:'var(--muted2)', fontWeight:700, textTransform:'uppercase', letterSpacing:1.5, display:'flex', alignItems:'center', gap:8}}>
+            {I && <I size={14} color="var(--muted)"/>} {label}
+        </div>
+        <div style={{fontFamily:'"Bebas Neue",sans-serif', fontSize:40, color, lineHeight:1}}>{value}</div>
+        {sub && <div style={{fontSize:12, color:'var(--muted)'}}>{sub}</div>}
+    </div>
+);
+const Modal = ({children, onClose, width=520}) => (
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+        <div onClick={e=>e.stopPropagation()} className="animate-slide" style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:28,padding:'32px',width:'100%',maxWidth:width,maxHeight:'90vh',overflowY:'auto',position:'relative',boxShadow:'0 25px 50px rgba(0,0,0,.5)'}}>
+            <button onClick={onClose} style={{position:'absolute',top:20,right:20,background:'rgba(255,255,255,.05)',border:'none',borderRadius:'50%',width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#888'}}><Icons.x size={18}/></button>
+            {children}
+        </div>
+    </div>
+);
+const Input = ({label, ...p}) => (
+    <div style={{marginBottom:16}}>
+        {label && <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>{label}</label>}
+        <input style={{width:'100%',background:'#050505',border:'1px solid var(--border)',borderRadius:12,padding:'12px 16px',color:'#fff',fontSize:15,outline:'none',fontFamily:'DM Sans,sans-serif'}} {...p}/>
+    </div>
+);
+const Select = ({label, children, ...p}) => (
+    <div style={{marginBottom:16}}>
+        {label && <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>{label}</label>}
+        <select style={{width:'100%',background:'#050505',border:'1px solid var(--border)',borderRadius:12,padding:'12px 16px',color:'#fff',fontSize:15,outline:'none',fontFamily:'DM Sans,sans-serif',appearance:'none'}} {...p}>{children}</select>
+    </div>
+);
+const Textarea = ({label, ...p}) => (
+    <div style={{marginBottom:16}}>
+        {label && <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>{label}</label>}
+        <textarea style={{width:'100%',background:'#050505',border:'1px solid var(--border)',borderRadius:12,padding:'12px 16px',color:'#fff',fontSize:15,outline:'none',fontFamily:'DM Sans,sans-serif',minHeight:80,resize:'vertical'}} {...p}/>
+    </div>
+);
+const ProgressBar = ({value, color='var(--primary)', h=6}) => (
+    <div style={{height:h,background:'#222',borderRadius:h,overflow:'hidden'}}>
+        <div style={{height:'100%',width:`${Math.min(100,value)}%`,background:color,borderRadius:h,transition:'width .5s ease'}}/>
+    </div>
+);
+const StatusBadge = ({status}) => {
+    const m = { APPROVED:{color:'green',label:'Approved'}, PENDING:{color:'yellow',label:'Pending'}, REJECTED:{color:'red',label:'Rejected'}, UNDER_REVIEW:{color:'blue',label:'Under Review'}, ACTIVE:{color:'green',label:'Active'}, PAUSED:{color:'yellow',label:'Paused'}, LIVE:{color:'green',label:'Live'}, FLAGGED:{color:'red',label:'Flagged'} };
+    const v = m[status] || {color:'gray',label:status};
+    return <Badge color={v.color}>{v.label}</Badge>;
+};
+const PlatformBadge = ({platform}) => <span style={{display:'inline-block',background:'rgba(255,255,255,.06)',padding:'3px 8px',borderRadius:6,fontSize:11,fontWeight:700,color:'#aaa'}}>{platform}</span>;
+
+/* ═══════════════════════════════════════════
+   M-PESA STK SIMULATION MODAL
+   ═══════════════════════════════════════════ */
+const MpesaModal = ({type='withdraw', amount, phone:initPhone, onComplete, onClose}) => {
+    const [step, setStep] = useState(1);
+    const [phone, setPhone] = useState(initPhone||'');
+    const [amt, setAmt] = useState(amount||'');
+    const label = type==='withdraw' ? 'Withdraw to M-Pesa' : 'Deposit via M-Pesa';
+    const color = type==='withdraw' ? 'var(--green)' : 'var(--blue)';
+    const darkColor = type==='withdraw' ? 'rgba(16,185,129,.1)' : 'rgba(59,130,246,.1)';
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if(type==='withdraw' && Number(amt)<500) return alert('Minimum withdrawal is KSh 500');
+        if(!phone || phone.length<10) return alert('Enter a valid M-Pesa number');
+        setStep(2);
+        setTimeout(()=>setStep(3), 1800);
+    };
+    const handleConfirm = () => { setStep(4); setTimeout(()=>{ onComplete && onComplete(Number(amt)); }, 1500); };
+
+    return (
+        <Modal onClose={onClose} width={440}>
+            {step===1 && (
+                <form onSubmit={handleSubmit}>
+                    <div style={{width:48,height:48,borderRadius:'50%',background:darkColor,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20,border:`1px solid ${color}33`}}>
+                        <Icons.dollar size={22} color={color}/>
+                    </div>
+                    <h3 style={{fontSize:36,marginBottom:4}}>{label.toUpperCase()}</h3>
+                    <p style={{color:'var(--muted)',marginBottom:24,fontSize:14,fontWeight:500}}>{type==='withdraw'?'Send earnings to your M-Pesa instantly':'Fund your campaign wallet'}</p>
+                    <Input label="M-Pesa Phone Number" type="tel" placeholder="07XXXXXXXX" value={phone} onChange={e=>setPhone(e.target.value)} required/>
+                    <Input label={`Amount (KSh)${type==='withdraw'?' — Min 500':''}`} type="number" min={type==='withdraw'?500:1000} placeholder={type==='withdraw'?'5000':'50000'} value={amt} onChange={e=>setAmt(e.target.value)} required/>
+                    <Btn variant={type==='withdraw'?'green':'primary'} size="lg" style={{width:'100%',marginTop:8}}>{label}</Btn>
+                </form>
+            )}
+            {step===2 && (
+                <div style={{textAlign:'center',padding:'40px 0'}}>
+                    <div className="spinner" style={{width:48,height:48,borderWidth:4,borderTopColor:color,margin:'0 auto 24px'}}/>
+                    <p style={{fontSize:18,fontWeight:700}} className="animate-pulse">Sending M-Pesa prompt to {phone}...</p>
+                    <p style={{color:'var(--muted)',marginTop:8,fontSize:14}}>Please wait</p>
+                </div>
+            )}
+            {step===3 && (
+                <div className="animate-slide" style={{background:'#e2e8f0',borderRadius:20,padding:24,color:'#0f172a'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}><Icons.phone size={18} color="#0f172a"/> <strong>SIM Toolkit</strong></div>
+                    <p style={{fontWeight:500,fontSize:15,marginBottom:20,lineHeight:1.5}}>
+                        {type==='withdraw' 
+                            ? `Do you want to receive Ksh ${Number(amt).toLocaleString()} from SK KENYA? Enter M-PESA PIN`
+                            : `Do you want to pay Ksh ${Number(amt).toLocaleString()} to SK KENYA PAYBILL 247247? Enter M-PESA PIN`
+                        }
+                    </p>
+                    <input type="password" placeholder="Enter PIN" style={{width:'100%',background:'#fff',border:'1px solid #d1d5db',borderRadius:8,padding:'10px 14px',marginBottom:20,outline:'none',fontSize:15,fontFamily:'monospace'}}/>
+                    <div style={{display:'flex',justifyContent:'flex-end',gap:24,fontWeight:700,fontSize:15}}>
+                        <span onClick={onClose} style={{color:'#dc2626',cursor:'pointer'}}>Cancel</span>
+                        <span onClick={handleConfirm} style={{color:'#0284c7',cursor:'pointer'}}>OK</span>
+                    </div>
+                </div>
+            )}
+            {step===4 && (
+                <div className="animate-slide" style={{textAlign:'center',padding:'32px 0'}}>
+                    <div style={{width:72,height:72,borderRadius:'50%',background:darkColor,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px',border:`2px solid ${color}`}}>
+                        <Icons.checkCircle size={36} color={color}/>
+                    </div>
+                    <h3 style={{fontSize:40,marginBottom:8}}>{type==='withdraw'?'PAYMENT SENT!':'DEPOSIT RECEIVED!'}</h3>
+                    <p style={{color:'var(--muted)',fontSize:16,marginBottom:24}}>{KSh(amt)} {type==='withdraw'?'sent to your M-Pesa':'added to your wallet'}</p>
+                    <Btn variant="ghost" onClick={onClose}>Close</Btn>
+                </div>
+            )}
+        </Modal>
+    );
+};
+
+/* ═══════════════════════════════════════════
+   SUBMIT CONTENT MODAL
+   ═══════════════════════════════════════════ */
+const SubmitModal = ({campaigns, currentUser, onSubmit, onClose}) => {
+    const [campaignId, setCampaignId] = useState('');
+    const [url, setUrl] = useState('');
+    const [platform, setPlatform] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const activeCampaigns = campaigns.filter(c=>c.status==='ACTIVE');
+    const selected = activeCampaigns.find(c=>c.id===campaignId);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if(!campaignId || !url) return;
+        setSubmitting(true);
+        const detectedPlatform = platform || detectPlatform(url);
+        const fakeViews = Math.floor(Math.random()*50000)+1000;
+        let earned = (fakeViews/1000)*selected.rate;
+        if(selected.bonus) earned += selected.bonus;
+
+        setTimeout(()=>{
+            onSubmit({
+                id: uid(), campaignId, campaignName: selected.title, creatorId: currentUser.id, creatorName: currentUser.name,
+                videoUrl: url, platform: detectedPlatform, views: fakeViews, status:'PENDING', earned: Math.round(earned), submittedAt: new Date().toISOString()
+            });
+            setSubmitting(false);
+            onClose();
+        }, 1200);
+    };
+
+    return (
+        <Modal onClose={onClose} width={560}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}><Icons.link size={22} color="var(--primary)"/><h3 style={{fontSize:36}}>SUBMIT CONTENT</h3></div>
+            <p style={{color:'var(--muted)',marginBottom:24,fontSize:14}}>Paste your video link and we'll verify views automatically.</p>
+            
+            {selected && (
+                <div style={{background:'rgba(249,115,22,.08)',border:'1px solid rgba(249,115,22,.2)',borderRadius:14,padding:16,marginBottom:20,fontSize:13}}>
+                    <strong style={{color:'var(--primary)'}}>Earnings Formula:</strong><br/>
+                    <span style={{color:'#ccc'}}>(Views ÷ 1,000) × {KSh(selected.rate)}{selected.bonus ? ` + ${KSh(selected.bonus)} flat bonus` : ''}</span><br/>
+                    <span style={{color:'var(--muted)',fontSize:12}}>Example: 2,000 views × {KSh(selected.rate)}/1k{selected.bonus?` + ${KSh(selected.bonus)} bonus`:''} = {KSh((2000/1000)*selected.rate + (selected.bonus||0))}</span>
+                </div>
+            )}
+
+            <form onSubmit={handleSubmit}>
+                <Select label="Select Campaign" value={campaignId} onChange={e=>setCampaignId(e.target.value)} required>
+                    <option value="">Choose a campaign...</option>
+                    {activeCampaigns.map(c=><option key={c.id} value={c.id}>{c.brandName} — {c.title} ({KSh(c.rate)}/1k)</option>)}
+                </Select>
+                <Input label="Video URL" type="url" placeholder="https://www.tiktok.com/@you/video/123..." value={url} onChange={e=>{setUrl(e.target.value); setPlatform(detectPlatform(e.target.value));}} required/>
+                {selected && (
+                    <Select label="Platform" value={platform||detectPlatform(url)} onChange={e=>setPlatform(e.target.value)}>
+                        {selected.platforms.map(p=><option key={p} value={p}>{p}</option>)}
+                    </Select>
+                )}
+                <p style={{fontSize:12,color:'var(--muted)',marginBottom:16}}>📊 Views are verified automatically over a 30-day period. Bot views are disqualified.</p>
+                <Btn variant="primary" size="lg" style={{width:'100%'}} loading={submitting} disabled={submitting}>{submitting?'Verifying & Submitting...':'Submit for Review'}</Btn>
+            </form>
+        </Modal>
+    );
+};
+
+/* ═══════════════════════════════════════════
+   CREATE CAMPAIGN MODAL (Multi-Step)
+   ═══════════════════════════════════════════ */
+const CreateCampaignModal = ({currentUser, onSubmit, onClose}) => {
+    const [step, setStep] = useState(1);
+    const [f, setF] = useState({ title:'', type:'CLIPPING', category:'Tech', rate:'', budget:'', bonus:'', minViews:'1000', platforms:['TikTok'], guidelines:'', dos:'', donts:'', assetLink:'' });
+    const upd = (k,v) => setF(p=>({...p,[k]:v}));
+    const togglePlat = (p) => { const a=[...f.platforms]; a.includes(p)?a.splice(a.indexOf(p),1):a.push(p); upd('platforms',a); };
+    const [depositing, setDepositing] = useState(false);
+
+    const handleDeposit = () => {
+        setDepositing(true);
+        setTimeout(() => {
+            onSubmit({
+                id: uid(), brandId: currentUser.id, brandName: currentUser.name, title: f.title, type: f.type, category: f.category,
+                rate: Number(f.rate), bonus: Number(f.bonus)||0, budget: Number(f.budget), spent: 0, platforms: f.platforms,
+                guidelines: f.guidelines, dos: f.dos, donts: f.donts, assetLink: f.assetLink, minViews: Number(f.minViews)||1000,
+                status: 'ACTIVE', createdAt: new Date().toISOString()
+            }, Number(f.budget));
+            setDepositing(false);
+            onClose();
+        }, 2000);
+    };
+
+    const steps = ['Basics','Payment','Platforms','Launch'];
+    return (
+        <Modal onClose={onClose} width={640}>
+            <h3 style={{fontSize:36,marginBottom:4}}>CREATE CAMPAIGN</h3>
+            <div style={{display:'flex',gap:8,marginBottom:28}}>
+                {steps.map((s,i)=>(
+                    <div key={s} style={{flex:1,textAlign:'center'}}>
+                        <div style={{height:4,borderRadius:2,background:i+1<=step?'var(--primary)':'#222',transition:'background .3s',marginBottom:6}}/>
+                        <span style={{fontSize:11,color:i+1<=step?'var(--primary)':'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:1}}>{s}</span>
+                    </div>
+                ))}
+            </div>
+
+            {step===1 && <>
+                <Input label="Campaign Title" placeholder="e.g. M-Pesa Global Transfer Challenge" value={f.title} onChange={e=>upd('title',e.target.value)} required/>
+                <div style={{marginBottom:16}}>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>Content Type</label>
+                    <div style={{display:'flex',gap:8}}>
+                        {['CLIPPING','UGC'].map(t=><Btn key={t} variant={f.type===t?'primary':'ghost'} onClick={()=>upd('type',t)}>{t==='CLIPPING'?'Clipping (Repurpose)':'UGC (Original)'}</Btn>)}
+                    </div>
+                </div>
+                <Select label="Category" value={f.category} onChange={e=>upd('category',e.target.value)}>
+                    {['Tech','Finance','Music','Food','Fashion','Sports','Entertainment'].map(c=><option key={c}>{c}</option>)}
+                </Select>
+                <Btn variant="primary" size="lg" style={{width:'100%',marginTop:8}} onClick={()=>{if(!f.title)return alert('Enter a title');setStep(2);}}>Next: Payment Settings →</Btn>
+            </>}
+
+            {step===2 && <>
+                <Input label="Reward Rate (KSh per 1,000 views)" type="number" min="50" placeholder="350" value={f.rate} onChange={e=>upd('rate',e.target.value)} required/>
+                <Input label="Total Campaign Budget (KSh)" type="number" min="10000" placeholder="100000" value={f.budget} onChange={e=>upd('budget',e.target.value)} required/>
+                <Input label="Flat Fee Bonus per Approval (KSh) — Optional" type="number" placeholder="0" value={f.bonus} onChange={e=>upd('bonus',e.target.value)}/>
+                <Input label="Minimum Views Before Submission" type="number" placeholder="1000" value={f.minViews} onChange={e=>upd('minViews',e.target.value)}/>
+                <div style={{display:'flex',gap:8}}>
+                    <Btn variant="ghost" onClick={()=>setStep(1)} style={{flex:1}}>← Back</Btn>
+                    <Btn variant="primary" style={{flex:2}} onClick={()=>{if(!f.rate||!f.budget)return alert('Set rate and budget');setStep(3);}}>Next: Platforms →</Btn>
+                </div>
+            </>}
+
+            {step===3 && <>
+                <div style={{marginBottom:16}}>
+                    <label style={{display:'block',fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>Allowed Platforms</label>
+                    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                        {['TikTok','YouTube','Instagram','X'].map(p=>(
+                            <Btn key={p} variant={f.platforms.includes(p)?'white':'ghost'} size="sm" onClick={()=>togglePlat(p)}>{p}</Btn>
+                        ))}
+                    </div>
+                </div>
+                <Textarea label="Campaign Guidelines" placeholder="What creators must do/say/show..." value={f.guidelines} onChange={e=>upd('guidelines',e.target.value)}/>
+                <Textarea label="Do's (one per line)" placeholder="Show the app UI&#10;Use trending sounds" value={f.dos} onChange={e=>upd('dos',e.target.value)}/>
+                <Textarea label="Don'ts (one per line)" placeholder="No competitor mentions&#10;No fake transactions" value={f.donts} onChange={e=>upd('donts',e.target.value)}/>
+                <Input label="Asset Link (Google Drive, Optional)" placeholder="https://drive.google.com/..." value={f.assetLink} onChange={e=>upd('assetLink',e.target.value)}/>
+                <div style={{display:'flex',gap:8}}>
+                    <Btn variant="ghost" onClick={()=>setStep(2)} style={{flex:1}}>← Back</Btn>
+                    <Btn variant="primary" style={{flex:2}} onClick={()=>{if(f.platforms.length===0)return alert('Select at least one platform');setStep(4);}}>Next: Launch →</Btn>
+                </div>
+            </>}
+
+            {step===4 && <>
+                <div style={{background:'#050505',border:'1px solid var(--border)',borderRadius:16,padding:20,marginBottom:20}}>
+                    <h4 style={{fontSize:20,color:'var(--primary)',marginBottom:12}}>Campaign Summary</h4>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px 24px',fontSize:14}}>
+                        <span style={{color:'var(--muted)'}}>Title</span><span>{f.title}</span>
+                        <span style={{color:'var(--muted)'}}>Type</span><span>{f.type}</span>
+                        <span style={{color:'var(--muted)'}}>Category</span><span>{f.category}</span>
+                        <span style={{color:'var(--muted)'}}>Rate</span><span>{KSh(f.rate)}/1k views</span>
+                        <span style={{color:'var(--muted)'}}>Budget</span><span style={{color:'var(--primary)',fontWeight:700}}>{KSh(f.budget)}</span>
+                        {Number(f.bonus)>0 && <><span style={{color:'var(--muted)'}}>Bonus</span><span>{KSh(f.bonus)} per approval</span></>}
+                        <span style={{color:'var(--muted)'}}>Platforms</span><span>{f.platforms.join(', ')}</span>
+                    </div>
+                </div>
+                <p style={{fontSize:13,color:'var(--muted)',marginBottom:20}}>💰 {KSh(f.budget)} will be reserved from your wallet. Campaign goes LIVE immediately after deposit.</p>
+                <div style={{display:'flex',gap:8}}>
+                    <Btn variant="ghost" onClick={()=>setStep(3)} style={{flex:1}}>← Back</Btn>
+                    <Btn variant="primary" size="lg" style={{flex:2}} loading={depositing} disabled={depositing} onClick={handleDeposit}>{depositing?'Depositing & Launching...':` Deposit ${KSh(f.budget)} & Launch`}</Btn>
+                </div>
+            </>}
+        </Modal>
+    );
+};
+
+/* ═══════════════════════════════════════════
+   MINI CHART (Earnings Line — pure SVG)
+   ═══════════════════════════════════════════ */
+const EarningsChart = ({data=[]}) => {
+    if(data.length===0) data = [1200,3400,2800,5600,4200,7800,6500,8750];
+    const max = Math.max(...data);
+    const w=600, h=200, px=40, py=20;
+    const cw = w-px*2, ch = h-py*2;
+    const points = data.map((v,i) => ({ x: px + (i/(data.length-1))*cw, y: py + ch - (v/max)*ch }));
+    const line = points.map((p,i)=>i===0?`M${p.x},${p.y}`:`L${p.x},${p.y}`).join(' ');
+    const area = line + ` L${points[points.length-1].x},${h-py} L${points[0].x},${h-py} Z`;
+
+    return (
+        <div style={{background:'var(--card)', border:'1px solid var(--border)', borderRadius:20, padding:24}}>
+            <h4 style={{fontSize:18,marginBottom:16,fontFamily:'"DM Sans",sans-serif',fontWeight:700}}>Earnings (Last 8 Weeks)</h4>
+            <svg viewBox={`0 0 ${w} ${h}`} style={{width:'100%',height:'auto'}}>
+                <defs><linearGradient id="areaG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--primary)" stopOpacity=".3"/><stop offset="100%" stopColor="var(--primary)" stopOpacity="0"/></linearGradient></defs>
+                {[0,.25,.5,.75,1].map(f=><line key={f} x1={px} y1={py+ch*f} x2={w-px} y2={py+ch*f} stroke="#222" strokeWidth="1"/>)}
+                <path d={area} fill="url(#areaG)"/>
+                <path d={line} fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinejoin="round"/>
+                {points.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="4" fill="var(--primary)" stroke="var(--card)" strokeWidth="2"/>)}
+                {data.map((v,i)=><text key={i} x={points[i].x} y={points[i].y-12} fill="#aaa" fontSize="10" textAnchor="middle" fontFamily="DM Sans">{KSh(v)}</text>)}
+            </svg>
+        </div>
+    );
+};
+
+/* ═══════════════════════════════════════════
+   PAGE: HOME / LANDING
+   ═══════════════════════════════════════════ */
+const HomePage = ({nav, campaigns}) => {
+    const [mode, setMode] = useState('creator');
+    return (
+        <div className="animate-fade">
+            {/* Hero */}
+            <div style={{position:'relative',minHeight:'90vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',padding:'120px 24px 80px',overflow:'hidden'}}>
+                <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:800,height:800,background:'radial-gradient(circle, rgba(249,115,22,.12) 0%, rgba(10,10,10,0) 70%)',borderRadius:'50%',pointerEvents:'none'}}/>
+                <div style={{position:'relative',zIndex:1,maxWidth:900}}>
+                    <div style={{display:'inline-flex',background:'var(--card)',border:'1px solid var(--border)',padding:5,borderRadius:50,marginBottom:48}}>
+                        {['creator','brand'].map(m=>(
+                            <button key={m} onClick={()=>setMode(m)} style={{padding:'10px 32px',borderRadius:50,border:'none',cursor:'pointer',fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:1.5,transition:'all .25s',fontFamily:'DM Sans,sans-serif', background:mode===m?'var(--primary)':'transparent',color:mode===m?'#fff':'#666', boxShadow:mode===m?'0 0 20px rgba(249,115,22,.4)':'none'}}>
+                                For {m==='creator'?'Creators':'Brands'}
+                            </button>
+                        ))}
+                    </div>
+                    {mode==='creator'?(
+                        <div className="animate-fade">
+                            <h1 style={{fontSize:'clamp(48px,8vw,96px)',marginBottom:24}}>EARN REAL MONEY POSTING CLIPS ON TIKTOK, YOUTUBE & X</h1>
+                            <p style={{fontSize:20,color:'var(--muted)',maxWidth:640,margin:'0 auto 40px',fontWeight:500}}>Join 500+ Kenyan creators earning via M-Pesa. No followers minimum. Just great content.</p>
+                            <div style={{display:'flex',gap:16,justifyContent:'center',flexWrap:'wrap'}}>
+                                <Btn variant="primary" size="xl" onClick={()=>nav('c-dash')} style={{boxShadow:'0 0 30px rgba(249,115,22,.3)'}}>Start Earning Now</Btn>
+                                <Btn variant="outline" size="xl" onClick={()=>nav('discover')}>Browse Campaigns</Btn>
+                            </div>
+                        </div>
+                    ):(
+                        <div className="animate-fade">
+                            <h1 style={{fontSize:'clamp(48px,8vw,96px)',marginBottom:24}}>LAUNCH PERFORMANCE CAMPAIGNS IN KENYA</h1>
+                            <p style={{fontSize:20,color:'var(--muted)',maxWidth:640,margin:'0 auto 40px',fontWeight:500}}>Pay only for verified views. Zero ad-spend waste. Reach millions through authentic creator content.</p>
+                            <Btn variant="primary" size="xl" onClick={()=>nav('b-dash')} style={{boxShadow:'0 0 30px rgba(249,115,22,.3)'}}>Launch My Campaign</Btn>
+                        </div>
+                    )}
+                </div>
+            </div>
+            {/* Stats */}
+            <div style={{maxWidth:900,margin:'-60px auto 0',padding:'0 24px',position:'relative',zIndex:10}}>
+                <div style={{background:'var(--card)',border:'1px solid rgba(249,115,22,.25)',borderRadius:28,padding:'40px 48px',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:32,textAlign:'center',boxShadow:'0 20px 40px rgba(0,0,0,.6)'}}>
+                    {[{v:'KSh 4.2M+',l:'Paid Out',c:'var(--primary)'},{v:'500+',l:'Active Creators'},{v:'47',l:'Live Campaigns'}].map(s=>(
+                        <div key={s.l}> <div style={{fontFamily:'"Bebas Neue",sans-serif',fontSize:48,color:s.c||'#fff',marginBottom:4}}>{s.v}</div><div style={{fontSize:12,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:1.5}}>{s.l}</div></div>
+                    ))}
+                </div>
+            </div>
+            {/* Campaigns Preview */}
+            <div style={{maxWidth:1100,margin:'80px auto 80px',padding:'0 24px'}}>
+                <h2 style={{fontSize:48,textAlign:'center',marginBottom:8}}>ACTIVE CAMPAIGNS</h2>
+                <p style={{textAlign:'center',color:'var(--muted)',fontSize:18,marginBottom:40}}>Premium brand deals. Start earning today.</p>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:20}}>
+                    {campaigns.filter(c=>c.status==='ACTIVE').slice(0,3).map(c=>(
+                        <div key={c.id} onClick={()=>nav('discover')} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:24,padding:24,cursor:'pointer',transition:'all .25s'}} onMouseOver={e=>{e.currentTarget.style.borderColor='var(--primary)';e.currentTarget.style.transform='translateY(-3px)';}} onMouseOut={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.transform='none';}}>
+                            <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
+                                <div style={{width:44,height:44,background:'#000',border:'1px solid var(--border2)',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'"Bebas Neue",sans-serif',fontSize:18}}>{c.brandName.substring(0,2).toUpperCase()}</div>
+                                <Badge color={c.type==='UGC'?'purple':'gray'}>{c.type}</Badge>
+                            </div>
+                            <h3 style={{fontSize:18,fontFamily:'"DM Sans",sans-serif',fontWeight:700,marginBottom:16}}>{c.brandName} — {c.title}</h3>
+                            <div style={{background:'#050505',borderRadius:14,padding:16,border:'1px solid var(--border)',marginBottom:16}}>
+                                <div style={{fontFamily:'"Bebas Neue",sans-serif',fontSize:36,color:'var(--primary)'}}>{KSh(c.rate)} <span style={{fontSize:13,color:'var(--muted)',fontFamily:'"DM Sans",sans-serif'}}>/1k views</span></div>
+                                {c.bonus>0 && <div style={{fontSize:12,fontWeight:700,color:'var(--green)',marginTop:4}}>+ {KSh(c.bonus)} flat bonus</div>}
+                            </div>
+                            <div style={{display:'flex',gap:6}}>{c.platforms.map(p=><PlatformBadge key={p} platform={p}/>)}</div>
+                        </div>
+                    ))}
+                </div>
+                <div style={{textAlign:'center',marginTop:40}}><Btn variant="outline" size="lg" onClick={()=>nav('discover')}>View All Campaigns</Btn></div>
+            </div>
+        </div>
+    );
+};
+
+/* ═══════════════════════════════════════════
+   PAGE: DISCOVER
+   ═══════════════════════════════════════════ */
+const DiscoverPage = ({campaigns, currentUser, onSubmit}) => {
+    const [typeF, setTypeF] = useState('ALL');
+    const [platF, setPlatF] = useState('ALL');
+    const [sort, setSort] = useState('rate');
+    const [modal, setModal] = useState(null);
+
+    let filtered = campaigns.filter(c=>c.status==='ACTIVE');
+    if(typeF!=='ALL') filtered = filtered.filter(c=>c.type===typeF);
+    if(platF!=='ALL') filtered = filtered.filter(c=>c.platforms.includes(platF));
+    if(sort==='rate') filtered.sort((a,b)=>b.rate-a.rate);
+    if(sort==='budget') filtered.sort((a,b)=>(b.budget-b.spent)-(a.budget-a.spent));
+    if(sort==='newest') filtered.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+
+    return (
+        <div className="animate-fade" style={{maxWidth:1100,margin:'0 auto',padding:'100px 24px 80px'}}>
+            <h1 style={{fontSize:56,marginBottom:8}}>DISCOVER CAMPAIGNS</h1>
+            <p style={{color:'var(--muted)',fontSize:18,marginBottom:32}}>Browse live brand campaigns paying per 1,000 views.</p>
+            {/* Filters */}
+            <div style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:32,alignItems:'center'}}>
+                <div style={{display:'flex',background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden'}}>
+                    {['ALL','CLIPPING','UGC'].map(t=>(
+                        <button key={t} onClick={()=>setTypeF(t)} style={{padding:'8px 16px',border:'none',background:typeF===t?'var(--primary)':'transparent',color:typeF===t?'#fff':'#888',cursor:'pointer',fontSize:13,fontWeight:700,fontFamily:'DM Sans',transition:'all .2s'}}>{t==='ALL'?'All Types':t}</button>
+                    ))}
+                </div>
+                <select value={platF} onChange={e=>setPlatF(e.target.value)} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:'8px 16px',color:'#fff',fontSize:13,fontWeight:700,outline:'none',fontFamily:'DM Sans',appearance:'none',cursor:'pointer'}}>
+                    <option value="ALL">All Platforms</option>
+                    {['TikTok','YouTube','Instagram','X'].map(p=><option key={p} value={p}>{p}</option>)}
+                </select>
+                <select value={sort} onChange={e=>setSort(e.target.value)} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:'8px 16px',color:'#fff',fontSize:13,fontWeight:700,outline:'none',fontFamily:'DM Sans',appearance:'none',cursor:'pointer'}}>
+                    <option value="rate">Highest Rate</option>
+                    <option value="newest">Newest</option>
+                    <option value="budget">Most Budget</option>
+                </select>
+            </div>
+            {/* Grid */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(340px,1fr))',gap:20}}>
+                {filtered.map(c => {
+                    const prog = pct(c.spent,c.budget);
+                    return (
+                        <div key={c.id} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:24,padding:24,display:'flex',flexDirection:'column',transition:'all .25s'}} onMouseOver={e=>{e.currentTarget.style.borderColor='var(--primary)';e.currentTarget.style.transform='translateY(-3px)';}} onMouseOut={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.transform='none';}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
+                                <div style={{display:'flex',alignItems:'center',gap:12}}>
+                                    <div style={{width:48,height:48,background:'#000',border:'1px solid var(--border2)',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'"Bebas Neue",sans-serif',fontSize:20}}>{c.brandName.substring(0,2).toUpperCase()}</div>
+                                    <div>
+                                        <div style={{fontWeight:700,fontSize:16}}>{c.brandName}</div>
+                                        <div style={{display:'flex',gap:6,marginTop:4}}><Badge color={c.type==='UGC'?'purple':'gray'}>{c.type}</Badge><Badge>{c.category}</Badge></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <h3 style={{fontSize:20,fontFamily:'"DM Sans",sans-serif',fontWeight:700,marginBottom:16,flex:1}}>{c.title}</h3>
+                            <div style={{background:'#050505',borderRadius:14,padding:16,border:'1px solid rgba(255,255,255,.05)',marginBottom:16}}>
+                                <div style={{fontFamily:'"Bebas Neue",sans-serif',fontSize:40,color:'var(--primary)',lineHeight:1}}>{KSh(c.rate)} <span style={{fontSize:13,color:'var(--muted)',fontFamily:'"DM Sans",sans-serif',fontWeight:400}}>/1k views</span></div>
+                                {c.bonus>0 && <div style={{fontSize:12,fontWeight:700,color:'var(--green)',marginTop:6}}>+ {KSh(c.bonus)} flat bonus per approval</div>}
+                            </div>
+                            <div style={{marginBottom:16}}>
+                                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--muted)',fontWeight:700,marginBottom:6}}>
+                                    <span>Budget: {KSh(c.spent)} / {KSh(c.budget)}</span><span>{prog}%</span>
+                                </div>
+                                <ProgressBar value={prog}/>
+                            </div>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{c.platforms.map(p=><PlatformBadge key={p} platform={p}/>)}</div>
+                                <Btn variant="white" size="sm" onClick={()=>setModal(c.id)}>Apply & Submit</Btn>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            {filtered.length===0 && <div style={{textAlign:'center',padding:80,color:'var(--muted)'}}>No campaigns match your filters.</div>}
+            {modal && <SubmitModal campaigns={campaigns} currentUser={currentUser} onSubmit={(s)=>{onSubmit(s);setModal(null);}} onClose={()=>setModal(null)}/>}
+        </div>
+    );
+};
+
+/* ═══════════════════════════════════════════
+   PAGE: CREATOR DASHBOARD
+   ═══════════════════════════════════════════ */
+const CreatorDashPage = ({db, user, syncDb}) => {
+    const [showSubmit, setShowSubmit] = useState(false);
+    const [showWithdraw, setShowWithdraw] = useState(false);
+    const mySubs = db.submissions.filter(s=>s.creatorId===user.id);
+    const approved = mySubs.filter(s=>s.status==='APPROVED');
+    const totalEarned = approved.reduce((s,x)=>s+x.earned,0);
+    const pendingEarned = mySubs.filter(s=>s.status==='PENDING'||s.status==='UNDER_REVIEW').reduce((s,x)=>s+x.earned,0);
+    const totalViews = mySubs.reduce((s,x)=>s+x.views,0);
+
+    const handleNewSubmission = (sub) => { syncDb({...db, submissions:[sub,...db.submissions], notifications:[{id:uid(),userId:user.id,message:`Submission for ${sub.campaignName} received! Views: ${shortNum(sub.views)}`,read:false,createdAt:new Date().toISOString(),type:'info'},...db.notifications]}); };
+    const handleWithdraw = (amt) => {
+        const newUsers = db.users.map(u=>u.id===user.id?{...u,balance:u.balance-amt}:u);
+        const newNotifs = [{id:uid(),userId:user.id,message:`Withdrawal of ${KSh(amt)} sent to M-Pesa successfully!`,read:false,createdAt:new Date().toISOString(),type:'success'},...db.notifications];
+        syncDb({...db, users:newUsers, notifications:newNotifs});
+    };
+
+    return (
+        <div className="animate-fade" style={{maxWidth:1100,margin:'0 auto',padding:'100px 24px 80px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',flexWrap:'wrap',gap:16,marginBottom:32}}>
+                <div>
+                    <h1 style={{fontSize:44,marginBottom:4}}>CREATOR DASHBOARD</h1>
+                    <p style={{color:'var(--muted)',fontWeight:500}}>Welcome back, {user.name} {user.verified&&'✓'}</p>
+                </div>
+                <div style={{display:'flex',gap:12}}>
+                    <Btn variant="white" onClick={()=>setShowSubmit(true)}><Icons.plus size={16}/> Submit Content</Btn>
+                    <Btn variant="green" onClick={()=>setShowWithdraw(true)} style={{boxShadow:'0 0 15px rgba(16,185,129,.3)'}}><Icons.dollar size={16}/> Withdraw M-Pesa</Btn>
+                </div>
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:16,marginBottom:32}}>
+                <StatCard label="Available Balance" value={KSh(user.balance)} icon={Icons.wallet} color="var(--primary)"/>
+                <StatCard label="Total Earned" value={KSh(totalEarned)} icon={Icons.trending}/>
+                <StatCard label="Pending Approval" value={KSh(pendingEarned)} icon={Icons.clock} color="var(--yellow)"/>
+                <StatCard label="Total Views" value={shortNum(totalViews)} icon={Icons.eye}/>
+            </div>
+
+            <EarningsChart/>
+
+            <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:20,overflow:'hidden',marginTop:32}}>
+                <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',background:'#0c0c0c',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <h3 style={{fontSize:18,fontFamily:'"DM Sans",sans-serif',fontWeight:700}}>Your Submissions ({mySubs.length})</h3>
+                </div>
+                <div style={{overflowX:'auto'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:14,whiteSpace:'nowrap'}}>
+                        <thead><tr style={{background:'#0a0a0a'}}>
+                            {['Campaign','Platform','Views','Status','Earned','Date'].map(h=><th key={h} style={{padding:'12px 20px',textAlign:'left',fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:1}}>{h}</th>)}
+                        </tr></thead>
+                        <tbody>
+                            {mySubs.length===0?<tr><td colSpan={6} style={{padding:40,textAlign:'center',color:'var(--muted)'}}>No submissions yet. Go Discover campaigns!</td></tr>:
+                            mySubs.map(s=>(
+                                <tr key={s.id} style={{borderBottom:'1px solid var(--border)'}}>
+                                    <td style={{padding:'14px 20px',fontWeight:600}}><a href={s.videoUrl} target="_blank" style={{color:'#fff',textDecoration:'none'}}>{s.campaignName}</a></td>
+                                    <td style={{padding:'14px 20px'}}><PlatformBadge platform={s.platform}/></td>
+                                    <td style={{padding:'14px 20px',fontFamily:'monospace'}}>{s.views.toLocaleString()}</td>
+                                    <td style={{padding:'14px 20px'}}><StatusBadge status={s.status}/></td>
+                                    <td style={{padding:'14px 20px',fontWeight:700,color:'var(--primary)',fontFamily:'monospace'}}>{KSh(s.earned)}</td>
+                                    <td style={{padding:'14px 20px',color:'var(--muted)'}}>{ago(s.submittedAt)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {showSubmit && <SubmitModal campaigns={db.campaigns} currentUser={user} onSubmit={(s)=>{handleNewSubmission(s);setShowSubmit(false);}} onClose={()=>setShowSubmit(false)}/>}
+            {showWithdraw && <MpesaModal type="withdraw" phone={user.phone} onComplete={handleWithdraw} onClose={()=>setShowWithdraw(false)}/>}
+        </div>
+    );
+};
+
+/* ═══════════════════════════════════════════
+   PAGE: BRAND DASHBOARD
+   ═══════════════════════════════════════════ */
+const BrandDashPage = ({db, user, syncDb}) => {
+    const [showCreate, setShowCreate] = useState(false);
+    const [showDeposit, setShowDeposit] = useState(false);
+    const myCamps = db.campaigns.filter(c=>c.brandId===user.id);
+    const mySubs = db.submissions.filter(s=>myCamps.some(c=>c.id===s.campaignId));
+    const pendingCount = mySubs.filter(s=>s.status==='PENDING'||s.status==='UNDER_REVIEW').length;
+    const totalSpent = myCamps.reduce((s,c)=>s+c.spent,0);
+    const totalViews = mySubs.filter(s=>s.status==='APPROVED').reduce((s,x)=>s+x.views,0);
+
+    const handleApprove = (sub) => {
+        const camp = myCamps.find(c=>c.id===sub.campaignId);
+        if(camp && camp.spent+sub.earned>camp.budget) return alert('Campaign budget exhausted! Top up first.');
+        const newSubs = db.submissions.map(s=>s.id===sub.id?{...s,status:'APPROVED'}:s);
+        const newCamps = db.campaigns.map(c=>c.id===sub.campaignId?{...c,spent:c.spent+sub.earned}:c);
+        const newUsers = db.users.map(u=>u.id===sub.creatorId?{...u,balance:u.balance+sub.earned}:u);
+        const newNotifs = [{id:uid(),userId:sub.creatorId,message:`Your ${sub.campaignName} submission was APPROVED! +${KSh(sub.earned)} 🎉`,read:false,createdAt:new Date().toISOString(),type:'success'},...db.notifications];
+        syncDb({...db,submissions:newSubs,campaigns:newCamps,users:newUsers,notifications:newNotifs});
+    };
+    const handleReject = (sub) => {
+        const newSubs = db.submissions.map(s=>s.id===sub.id?{...s,status:'REJECTED',earned:0}:s);
+        const newNotifs = [{id:uid(),userId:sub.creatorId,message:`Your ${sub.campaignName} submission was REJECTED.`,read:false,createdAt:new Date().toISOString(),type:'error'},...db.notifications];
+        syncDb({...db,submissions:newSubs,notifications:newNotifs});
+    };
+    const handleFlag = (sub) => {
+        const newSubs = db.submissions.map(s=>s.id===sub.id?{...s,status:'FLAGGED'}:s);
+        syncDb({...db,submissions:newSubs});
+    };
+    const handlePause = (camp) => {
+        const newCamps = db.campaigns.map(c=>c.id===camp.id?{...c,status:c.status==='ACTIVE'?'PAUSED':'ACTIVE'}:c);
+        syncDb({...db,campaigns:newCamps});
+    };
+    const handleCreateCampaign = (camp, budgetAmt) => {
+        const newUsers = db.users.map(u=>u.id===user.id?{...u,balance:u.balance-budgetAmt}:u);
+        syncDb({...db, campaigns:[camp,...db.campaigns], users:newUsers});
+    };
+    const handleDeposit = (amt) => {
+        const newUsers = db.users.map(u=>u.id===user.id?{...u,balance:u.balance+amt}:u);
+        syncDb({...db, users:newUsers});
+    };
+    const bulkApprove = () => {
+        const pending = mySubs.filter(s=>s.status==='PENDING');
+        let newDb = {...db};
+        pending.forEach(sub => {
+            const camp = myCamps.find(c=>c.id===sub.campaignId);
+            if(camp && camp.spent+sub.earned<=camp.budget) {
+                newDb = {...newDb, submissions: newDb.submissions.map(s=>s.id===sub.id?{...s,status:'APPROVED'}:s), campaigns: newDb.campaigns.map(c=>c.id===sub.campaignId?{...c,spent:c.spent+sub.earned}:c), users: newDb.users.map(u=>u.id===sub.creatorId?{...u,balance:u.balance+sub.earned}:u), notifications: [{id:uid(),userId:sub.creatorId,message:`Your ${sub.campaignName} submission was APPROVED! +${KSh(sub.earned)} 🎉`,read:false,createdAt:new Date().toISOString(),type:'success'},...newDb.notifications] };
+            }
+        });
+        syncDb(newDb);
+    };
+
+    return (
+        <div className="animate-fade" style={{maxWidth:1200,margin:'0 auto',padding:'100px 24px 80px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',flexWrap:'wrap',gap:16,marginBottom:32}}>
+                <div>
+                    <h1 style={{fontSize:44,marginBottom:4}}>BRAND DASHBOARD</h1>
+                    <p style={{color:'var(--muted)',fontWeight:500}}>{user.name} — Campaign Management</p>
+                </div>
+                <div style={{display:'flex',gap:12}}>
+                    <Btn variant="ghost" onClick={()=>setShowDeposit(true)} style={{fontFamily:'monospace'}}>{KSh(user.balance)} (Top Up)</Btn>
+                    <Btn variant="primary" onClick={()=>setShowCreate(true)} style={{boxShadow:'0 0 15px rgba(249,115,22,.3)'}}><Icons.plus size={16}/> Create Campaign</Btn>
+                </div>
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:16,marginBottom:32}}>
+                <StatCard label="Campaigns" value={myCamps.length} icon={Icons.grid}/>
+                <StatCard label="Total Views" value={shortNum(totalViews)} icon={Icons.eye} color="var(--primary)"/>
+                <StatCard label="Total Spent" value={KSh(totalSpent)} icon={Icons.trending}/>
+                <StatCard label="Wallet" value={KSh(user.balance)} icon={Icons.wallet} color="var(--green)"/>
+                <StatCard label="Pending Review" value={pendingCount} icon={Icons.clock} color="var(--yellow)"/>
+            </div>
+
+            {/* Campaigns List */}
+            <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:20,overflow:'hidden',marginBottom:32}}>
+                <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',background:'#0c0c0c'}}><h3 style={{fontSize:18,fontFamily:'"DM Sans",sans-serif',fontWeight:700}}>My Campaigns</h3></div>
+                <div style={{padding:20,display:'flex',flexDirection:'column',gap:12}}>
+                    {myCamps.length===0?<p style={{color:'var(--muted)',textAlign:'center',padding:40}}>No campaigns yet. Create your first!</p>:
+                    myCamps.map(c=>{
+                        const prog = pct(c.spent,c.budget);
+                        const campSubs = db.submissions.filter(s=>s.campaignId===c.id);
+                        return (
+                            <div key={c.id} style={{background:'#0a0a0a',border:'1px solid var(--border)',borderRadius:16,padding:20}}>
+                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12,flexWrap:'wrap',gap:8}}>
+                                    <div><h4 style={{fontSize:18,fontFamily:'"DM Sans",sans-serif',fontWeight:700,marginBottom:4}}>{c.title}</h4><span style={{fontSize:13,color:'var(--muted)',fontFamily:'monospace'}}>{KSh(c.rate)}/1k &bull; {c.type} &bull; {campSubs.length} subs</span></div>
+                                    <div style={{display:'flex',gap:8,alignItems:'center'}}><StatusBadge status={c.status}/><Btn size="sm" variant={c.status==='ACTIVE'?'danger':'green'} onClick={()=>handlePause(c)}>{c.status==='ACTIVE'?'Pause':'Resume'}</Btn></div>
+                                </div>
+                                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--muted)',fontWeight:700,marginBottom:6}}><span>{KSh(c.spent)} / {KSh(c.budget)}</span><span>{prog}%</span></div>
+                                <ProgressBar value={prog} color={prog>=90?'var(--red)':'var(--primary)'}/>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Submissions Review */}
+            <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:20,overflow:'hidden'}}>
+                <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',background:'#0c0c0c',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <h3 style={{fontSize:18,fontFamily:'"DM Sans",sans-serif',fontWeight:700,display:'flex',alignItems:'center',gap:8}}>Submissions Inbox <Badge color="orange">{pendingCount} pending</Badge></h3>
+                    {pendingCount>0 && <Btn size="sm" variant="primary" onClick={bulkApprove}><Icons.check size={14}/> Bulk Approve All</Btn>}
+                </div>
+                <p style={{padding:'12px 24px',fontSize:12,color:'var(--muted)',borderBottom:'1px solid var(--border)',background:'#0f0f0f'}}>⏱ Submissions auto-approve after 48 hours unless flagged</p>
+                <div style={{overflowX:'auto'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:14,whiteSpace:'nowrap'}}>
+                        <thead><tr style={{background:'#0a0a0a'}}>
+                            {['Creator','Campaign','Platform','Views','Earned','Status','Actions'].map(h=><th key={h} style={{padding:'12px 16px',textAlign:'left',fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:1}}>{h}</th>)}
+                        </tr></thead>
+                        <tbody>
+                            {mySubs.length===0?<tr><td colSpan={7} style={{padding:40,textAlign:'center',color:'var(--muted)'}}>No submissions yet.</td></tr>:
+                            mySubs.map(s=>(
+                                <tr key={s.id} style={{borderBottom:'1px solid var(--border)'}}>
+                                    <td style={{padding:'12px 16px',fontWeight:600}}>{s.creatorName}</td>
+                                    <td style={{padding:'12px 16px'}}>{s.campaignName}</td>
+                                    <td style={{padding:'12px 16px'}}><PlatformBadge platform={s.platform}/></td>
+                                    <td style={{padding:'12px 16px',fontFamily:'monospace'}}>{s.views.toLocaleString()}</td>
+                                    <td style={{padding:'12px 16px',fontFamily:'monospace',color:'var(--primary)',fontWeight:700}}>{KSh(s.earned)}</td>
+                                    <td style={{padding:'12px 16px'}}><StatusBadge status={s.status}/></td>
+                                    <td style={{padding:'12px 16px'}}>
+                                        {(s.status==='PENDING'||s.status==='UNDER_REVIEW') && (
+                                            <div style={{display:'flex',gap:6}}>
+                                                <button onClick={()=>handleApprove(s)} title="Approve" style={{width:32,height:32,borderRadius:'50%',border:'1px solid var(--primary)',background:'rgba(249,115,22,.1)',color:'var(--primary)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><Icons.check size={14}/></button>
+                                                <button onClick={()=>handleReject(s)} title="Reject" style={{width:32,height:32,borderRadius:'50%',border:'1px solid var(--border)',background:'transparent',color:'#888',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><Icons.x size={14}/></button>
+                                                <button onClick={()=>handleFlag(s)} title="Flag" style={{width:32,height:32,borderRadius:'50%',border:'1px solid var(--border)',background:'transparent',color:'#888',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><Icons.flag size={14}/></button>
+                                            </div>
+                                        )}
+                                        {s.status==='APPROVED' && <span style={{color:'var(--green)',fontSize:12,fontWeight:700}}>✓ Paid</span>}
+                                        {s.status==='REJECTED' && <span style={{color:'var(--red)',fontSize:12,fontWeight:700}}>✗ Rejected</span>}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {showCreate && <CreateCampaignModal currentUser={user} onSubmit={handleCreateCampaign} onClose={()=>setShowCreate(false)}/>}
+            {showDeposit && <MpesaModal type="deposit" phone={user.phone} onComplete={handleDeposit} onClose={()=>setShowDeposit(false)}/>}
+        </div>
+    );
+};
+
+/* ═══════════════════════════════════════════
+   PAGE: HOW IT WORKS
+   ═══════════════════════════════════════════ */
+const HowItWorksPage = () => {
+    const [tab, setTab] = useState('creators');
+    const creatorSteps = [
+        {n:'1', t:'Sign Up Free', d:'No followers minimum, no fee. Create your account in 2 minutes.'},
+        {n:'2', t:'Discover Campaigns', d:'Browse brands paying per 1,000 views on your favorite platforms.'},
+        {n:'3', t:'Create Content', d:'Clipping (cut existing footage) or UGC (original content).'},
+        {n:'4', t:'Post to Social', d:'TikTok, YouTube Shorts, Instagram Reels, or X/Twitter.'},
+        {n:'5', t:'Submit Your Link', d:'Paste your video URL into your dashboard.'},
+        {n:'6', t:'Get Verified', d:'Views checked automatically over a 30-day verification window.'},
+        {n:'7', t:'Get Paid via M-Pesa', d:'Payment sent directly to your M-Pesa instantly once verified.'},
+    ];
+    const brandSteps = [
+        {n:'1', t:'Create Account', d:'Free to set up. Takes less than 5 minutes.'},
+        {n:'2', t:'Launch Campaign', d:'Set type (Clipping or UGC), rate, budget, and guidelines.'},
+        {n:'3', t:'Deposit Budget', d:'Pay via M-Pesa or card. Only charged what\'s actually used.'},
+        {n:'4', t:'Creators Apply', d:'Verified Kenyan creators see and apply to your campaign.'},
+        {n:'5', t:'Review Submissions', d:'Approve content you love, reject what doesn\'t fit.'},
+        {n:'6', t:'Track Performance', d:'Real-time views, spend, and ROI dashboard.'},
+        {n:'7', t:'Scale', d:'Top up budget and run multiple campaigns simultaneously.'},
+    ];
+    const steps = tab==='creators' ? creatorSteps : brandSteps;
+
+    return (
+        <div className="animate-fade" style={{maxWidth:800,margin:'0 auto',padding:'120px 24px 80px'}}>
+            <h1 style={{fontSize:64,textAlign:'center',marginBottom:8}}>HOW IT WORKS</h1>
+            <p style={{textAlign:'center',color:'var(--muted)',fontSize:18,marginBottom:40}}>Everything you need to know about earning or growing with SK Kenya.</p>
+            <div style={{display:'flex',justifyContent:'center',marginBottom:48}}>
+                <div style={{display:'inline-flex',background:'var(--card)',border:'1px solid var(--border)',padding:4,borderRadius:14}}>
+                    {[{k:'creators',l:'For Creators'},{k:'brands',l:'For Brands'}].map(t=>(
+                        <button key={t.k} onClick={()=>setTab(t.k)} style={{padding:'10px 28px',borderRadius:10,border:'none',cursor:'pointer',fontSize:14,fontWeight:700,fontFamily:'DM Sans',transition:'all .2s',background:tab===t.k?'var(--primary)':'transparent',color:tab===t.k?'#fff':'#888'}}>{t.l}</button>
+                    ))}
+                </div>
+            </div>
+            <div className="animate-fade" style={{display:'flex',flexDirection:'column',gap:20}}>
+                {steps.map((s,i)=>(
+                    <div key={s.n} style={{display:'flex',gap:20,alignItems:'flex-start'}}>
+                        <div style={{width:56,height:56,borderRadius:16,background:i===steps.length-1?'var(--primary)':'var(--card)',border:`1px solid ${i===steps.length-1?'var(--primary)':'var(--border)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'"Bebas Neue",sans-serif',fontSize:28,color:i===steps.length-1?'#fff':'var(--muted)',flexShrink:0, boxShadow:i===steps.length-1?'0 0 20px rgba(249,115,22,.4)':'none'}}>{s.n}</div>
+                        <div style={{paddingTop:8}}>
+                            <h4 style={{fontSize:22,marginBottom:4,fontFamily:'"DM Sans",sans-serif',fontWeight:700}}>{s.t}</h4>
+                            <p style={{color:'var(--muted)',fontSize:15,lineHeight:1.6}}>{s.d}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+/* ═══════════════════════════════════════════
+   PAGE: VERIFICATION
+   ═══════════════════════════════════════════ */
+const VerifyPage = () => {
+    const tiers = [
+        {name:'Basic',color:'#888',features:['Access all campaigns','Submit content','Earn per view','M-Pesa withdrawals'],req:'Sign up'},
+        {name:'Verified',color:'var(--primary)',features:['Everything in Basic','Verified badge ✓','30% more deal visibility','Priority campaign access','Early access to new brands'],req:'5+ approved submissions'},
+        {name:'Pro',color:'#A855F7',features:['Everything in Verified','Featured creator profile','Direct brand invitations','Higher rate negotiations','Dedicated support'],req:'50+ approved, 1M+ views'},
+    ];
+    return (
+        <div className="animate-fade" style={{maxWidth:1000,margin:'0 auto',padding:'120px 24px 80px',textAlign:'center'}}>
+            <Icons.shieldCheck size={56} color="var(--primary)" style={{margin:'0 auto 16px'}}/>
+            <h1 style={{fontSize:64,marginBottom:8}}>GET VERIFIED</h1>
+            <p style={{color:'var(--muted)',fontSize:18,maxWidth:600,margin:'0 auto 48px'}}>Verified creators get 30% more deals, an official trust badge, and priority placement.</p>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:20,marginBottom:48,textAlign:'left'}}>
+                {tiers.map(t=>(
+                    <div key={t.name} style={{background:'var(--card)',border:`1px solid ${t.color==='#888'?'var(--border)':t.color+'44'}`,borderRadius:24,padding:32}}>
+                        <h3 style={{fontSize:32,color:t.color,marginBottom:4}}>{t.name.toUpperCase()}</h3>
+                        <p style={{fontSize:12,color:'var(--muted)',marginBottom:20,fontWeight:700}}>Requires: {t.req}</p>
+                        <ul style={{listStyle:'none',display:'flex',flexDirection:'column',gap:10}}>
+                            {t.features.map(f=><li key={f} style={{display:'flex',alignItems:'center',gap:8,fontSize:14,color:'#ccc'}}><Icons.checkCircle size={16} color={t.color}/>{f}</li>)}
+                        </ul>
+                    </div>
+                ))}
+            </div>
+            <Btn variant="primary" size="xl">Apply for Verification</Btn>
+        </div>
+    );
+};
+
+/* ═══════════════════════════════════════════
+   PAGE: CREATOR PROFILE
+   ═══════════════════════════════════════════ */
+const CreatorProfilePage = ({user, db}) => {
+    if(!user || user.type!=='creator') return <div style={{padding:'160px 24px',textAlign:'center',color:'var(--muted)'}}>Creator not found.</div>;
+    const subs = db.submissions.filter(s=>s.creatorId===user.id);
+    const approved = subs.filter(s=>s.status==='APPROVED');
+    return (
+        <div className="animate-fade" style={{maxWidth:900,margin:'0 auto',padding:'120px 24px 80px'}}>
+            <div style={{display:'flex',gap:24,alignItems:'center',marginBottom:32,flexWrap:'wrap'}}>
+                <div style={{width:80,height:80,borderRadius:24,background:'var(--primary)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'"Bebas Neue",sans-serif',fontSize:32,boxShadow:'0 0 20px rgba(249,115,22,.3)'}}>{user.avatar}</div>
+                <div>
+                    <h1 style={{fontSize:44,display:'flex',alignItems:'center',gap:8}}>{user.name} {user.verified && <Icons.shieldCheck size={28} color="var(--primary)"/>}</h1>
+                    <p style={{color:'var(--muted)',fontSize:15}}>{user.bio||'Kenyan Creator'}</p>
+                    <div style={{display:'flex',gap:6,marginTop:8}}>{(user.platforms||[]).map(p=><PlatformBadge key={p} platform={p}/>)}</div>
+                </div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:16,marginBottom:32}}>
+                <StatCard label="Total Views" value={shortNum(user.totalViews||0)} icon={Icons.eye} color="var(--primary)"/>
+                <StatCard label="Total Earned" value={KSh(approved.reduce((s,x)=>s+x.earned,0))} icon={Icons.trending}/>
+                <StatCard label="Campaigns Done" value={user.campaignsCompleted||0} icon={Icons.grid}/>
+                <StatCard label="Approval Rate" value={(user.approvalRate||0)+'%'} icon={Icons.checkCircle} color="var(--green)"/>
+            </div>
+            <h2 style={{fontSize:32,marginBottom:16}}>RECENT SUBMISSIONS</h2>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:16}}>
+                {subs.slice(0,6).map(s=>(
+                    <div key={s.id} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:16,padding:20}}>
+                        <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}><span style={{fontWeight:700}}>{s.campaignName}</span><StatusBadge status={s.status}/></div>
+                        <div style={{fontSize:13,color:'var(--muted)',marginBottom:4}}>{s.platform} &bull; {s.views.toLocaleString()} views</div>
+                        <div style={{fontSize:14,color:'var(--primary)',fontWeight:700,fontFamily:'monospace'}}>{KSh(s.earned)}</div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+/* ═══════════════════════════════════════════
+   PAGE: ADMIN PANEL
+   ═══════════════════════════════════════════ */
+const AdminPage = ({db, syncDb}) => {
+    const totalPaidOut = db.submissions.filter(s=>s.status==='APPROVED').reduce((s,x)=>s+x.earned,0);
+    const totalViews = db.submissions.reduce((s,x)=>s+x.views,0);
+    return (
+        <div className="animate-fade" style={{maxWidth:1200,margin:'0 auto',padding:'100px 24px 80px'}}>
+            <h1 style={{fontSize:44,marginBottom:4,color:'var(--red)'}}>ADMIN PANEL</h1>
+            <p style={{color:'var(--muted)',marginBottom:32}}>Platform-wide analytics and management.</p>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:16,marginBottom:32}}>
+                <StatCard label="Total Users" value={db.users.length} icon={Icons.users}/>
+                <StatCard label="Total Campaigns" value={db.campaigns.length} icon={Icons.grid} color="var(--primary)"/>
+                <StatCard label="Total Submissions" value={db.submissions.length} icon={Icons.send}/>
+                <StatCard label="Total Paid Out" value={KSh(totalPaidOut)} icon={Icons.dollar} color="var(--green)"/>
+                <StatCard label="Total Views" value={shortNum(totalViews)} icon={Icons.eye}/>
+            </div>
+            {/* Users Table */}
+            <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:20,overflow:'hidden',marginBottom:32}}>
+                <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',background:'#0c0c0c'}}><h3 style={{fontSize:18,fontFamily:'"DM Sans",sans-serif',fontWeight:700}}>All Users</h3></div>
+                <div style={{overflowX:'auto'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:14,whiteSpace:'nowrap'}}>
+                        <thead><tr style={{background:'#0a0a0a'}}>
+                            {['Name','Type','Phone','Balance','Verified'].map(h=><th key={h} style={{padding:'12px 20px',textAlign:'left',fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:1}}>{h}</th>)}
+                        </tr></thead>
+                        <tbody>
+                            {db.users.map(u=>(
+                                <tr key={u.id} style={{borderBottom:'1px solid var(--border)'}}>
+                                    <td style={{padding:'12px 20px',fontWeight:600}}>{u.name}</td>
+                                    <td style={{padding:'12px 20px'}}><Badge color={u.type==='creator'?'orange':u.type==='brand'?'blue':'red'}>{u.type}</Badge></td>
+                                    <td style={{padding:'12px 20px',fontFamily:'monospace',color:'var(--muted)'}}>{u.phone||'—'}</td>
+                                    <td style={{padding:'12px 20px',fontFamily:'monospace'}}>{KSh(u.balance)}</td>
+                                    <td style={{padding:'12px 20px'}}>{u.verified?<Badge color="green">Verified</Badge>:<Badge>No</Badge>}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {/* All Campaigns */}
+            <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:20,overflow:'hidden',marginBottom:32}}>
+                <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',background:'#0c0c0c'}}><h3 style={{fontSize:18,fontFamily:'"DM Sans",sans-serif',fontWeight:700}}>All Campaigns</h3></div>
+                <div style={{overflowX:'auto'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:14,whiteSpace:'nowrap'}}>
+                        <thead><tr style={{background:'#0a0a0a'}}>
+                            {['Brand','Title','Type','Rate','Budget','Status'].map(h=><th key={h} style={{padding:'12px 20px',textAlign:'left',fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:1}}>{h}</th>)}
+                        </tr></thead>
+                        <tbody>
+                            {db.campaigns.map(c=>(
+                                <tr key={c.id} style={{borderBottom:'1px solid var(--border)'}}>
+                                    <td style={{padding:'12px 20px',fontWeight:600}}>{c.brandName}</td>
+                                    <td style={{padding:'12px 20px'}}>{c.title}</td>
+                                    <td style={{padding:'12px 20px'}}><Badge color={c.type==='UGC'?'purple':'gray'}>{c.type}</Badge></td>
+                                    <td style={{padding:'12px 20px',fontFamily:'monospace',color:'var(--primary)'}}>{KSh(c.rate)}/1k</td>
+                                    <td style={{padding:'12px 20px',fontFamily:'monospace'}}>{KSh(c.spent)}/{KSh(c.budget)}</td>
+                                    <td style={{padding:'12px 20px'}}><StatusBadge status={c.status}/></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+/* ═══════════════════════════════════════════
+   MAIN APP (Router + State)
+   ═══════════════════════════════════════════ */
+const App = () => {
+    const [ready, setReady] = useState(false);
+    const [view, setView] = useState('home');
+    const [currentUser, setCurrentUser] = useState(null);
+    const [db, setDb] = useState({users:[],campaigns:[],submissions:[],notifications:[]});
+    const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const [showNotifs, setShowNotifs] = useState(false);
+    const [showUserMenu, setShowUserMenu] = useState(false);
+
+    // Init
+    useEffect(()=>{
+        if(!localStorage.getItem('sk_init')){
+            DB.set('users',SEED.users); DB.set('campaigns',SEED.campaigns); DB.set('submissions',SEED.submissions); DB.set('notifications',SEED.notifications);
+            localStorage.setItem('sk_init','2');
+        }
+        const d = {users:DB.get('users'),campaigns:DB.get('campaigns'),submissions:DB.get('submissions'),notifications:DB.get('notifications')};
+        setDb(d);
+        setCurrentUser(d.users.find(u=>u.type==='creator')||d.users[0]);
+        setReady(true);
+    },[]);
+
+    const syncDb = useCallback((newDb)=>{
+        setDb(newDb);
+        DB.set('users',newDb.users); DB.set('campaigns',newDb.campaigns); DB.set('submissions',newDb.submissions); DB.set('notifications',newDb.notifications);
+        // Refresh currentUser from new data
+        setCurrentUser(prev => newDb.users.find(u=>u.id===prev?.id)||prev);
+    },[]);
+
+    const nav = useCallback((v)=>{ setView(v); setShowMobileMenu(false); setShowNotifs(false); setShowUserMenu(false); window.scrollTo(0,0); },[]);
+    const handleSubmission = (sub)=>{ syncDb({...db, submissions:[sub,...db.submissions]}); };
+
+    const myNotifs = useMemo(()=>db.notifications.filter(n=>n.userId===currentUser?.id),[db.notifications,currentUser]);
+    const unread = myNotifs.filter(n=>!n.read).length;
+
+    const markRead = ()=>{ syncDb({...db, notifications:db.notifications.map(n=>n.userId===currentUser?.id?{...n,read:true}:n)}); };
+
+    if(!ready) return <div style={{height:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}><div className="spinner" style={{width:40,height:40,borderWidth:4,borderTopColor:'var(--primary)'}}/></div>;
+
+    return (
+        <div>
+            {/* ─── NAVBAR ─── */}
+            <nav style={{position:'fixed',top:0,width:'100%',zIndex:100,background:'rgba(10,10,10,.9)',backdropFilter:'blur(12px)',borderBottom:'1px solid var(--border)',height:72,display:'flex',alignItems:'center',padding:'0 24px'}}>
+                <div style={{maxWidth:1200,width:'100%',margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:32}}>
+                        <div onClick={()=>nav('home')} style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
+                            <div style={{width:40,height:40,background:'var(--primary)',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'"Bebas Neue",sans-serif',fontSize:20,color:'#fff',boxShadow:'0 0 15px rgba(249,115,22,.3)'}}>SK</div>
+                            <span style={{fontFamily:'"Bebas Neue",sans-serif',fontSize:22,letterSpacing:3}}>SK KENYA</span>
+                        </div>
+                        <div className="nav-links" style={{display:'flex',gap:24}}>
+                            {[{k:'discover',l:'Discover'},{k:'how',l:'How It Works'},{k:'verify',l:'Verify'}].map(l=>(
+                                <button key={l.k} onClick={()=>nav(l.k)} style={{background:'none',border:'none',color:view===l.k?'var(--primary)':'#888',cursor:'pointer',fontSize:14,fontWeight:700,fontFamily:'DM Sans',textTransform:'uppercase',letterSpacing:.5,transition:'color .2s'}}>{l.l}</button>
+                            ))}
+                        </div>
+                    </div>
+                    <div style={{display:'flex',alignItems:'center',gap:12}}>
+                        {/* Notifs */}
+                        <div style={{position:'relative'}}>
+                            <button onClick={()=>{setShowNotifs(!showNotifs);if(!showNotifs)markRead();setShowUserMenu(false);}} style={{background:'none',border:'none',cursor:'pointer',color:'#aaa',padding:8,borderRadius:12,position:'relative'}}>
+                                <Icons.bell size={20}/>
+                                {unread>0 && <span style={{position:'absolute',top:4,right:4,width:10,height:10,background:'var(--red)',borderRadius:'50%',border:'2px solid #0a0a0a'}}/>}
+                            </button>
+                            {showNotifs && (
+                                <div style={{position:'absolute',top:48,right:0,width:360,background:'var(--card)',border:'1px solid var(--border)',borderRadius:20,boxShadow:'0 20px 40px rgba(0,0,0,.6)',padding:8,zIndex:200,maxHeight:420,overflowY:'auto'}}>
+                                    <div style={{padding:'12px 16px',fontSize:12,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:1}}>Notifications</div>
+                                    {myNotifs.length===0?<div style={{padding:24,textAlign:'center',color:'var(--muted)',fontSize:14}}>No notifications</div>:
+                                    myNotifs.slice(0,8).map(n=>(
+                                        <div key={n.id} style={{padding:'12px 16px',borderRadius:12,background:n.read?'transparent':'rgba(249,115,22,.05)',marginBottom:2,borderLeft:`3px solid ${n.type==='success'?'var(--green)':n.type==='error'?'var(--red)':n.type==='warning'?'var(--yellow)':'var(--primary)'}`,cursor:'default'}}>
+                                            <div style={{fontSize:14,lineHeight:1.4}}>{n.message}</div>
+                                            <div style={{fontSize:11,color:'var(--muted)',marginTop:4}}>{ago(n.createdAt)}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        {/* User Menu */}
+                        <div style={{position:'relative'}}>
+                            <button onClick={()=>{setShowUserMenu(!showUserMenu);setShowNotifs(false);}} style={{display:'flex',alignItems:'center',gap:8,background:'rgba(255,255,255,.06)',border:'1px solid var(--border)',borderRadius:50,padding:'6px 16px 6px 6px',cursor:'pointer',color:'#fff',fontFamily:'DM Sans',fontWeight:700,fontSize:13}}>
+                                <div style={{width:28,height:28,borderRadius:'50%',background:'var(--primary)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800}}>{currentUser?.avatar?.substring(0,2)||'?'}</div>
+                                {currentUser?.name}
+                            </button>
+                            {showUserMenu && (
+                                <div style={{position:'absolute',top:48,right:0,width:220,background:'var(--card)',border:'1px solid var(--border)',borderRadius:16,boxShadow:'0 20px 40px rgba(0,0,0,.6)',padding:8,zIndex:200}}>
+                                    <div style={{padding:'8px 12px',fontSize:10,fontWeight:700,color:'var(--muted2)',textTransform:'uppercase',letterSpacing:1.5}}>Switch Account</div>
+                                    {db.users.map(u=>(
+                                        <button key={u.id} onClick={()=>{setCurrentUser(u);setShowUserMenu(false);nav(u.type==='creator'?'c-dash':u.type==='brand'?'b-dash':'admin');}} style={{width:'100%',textAlign:'left',padding:'10px 12px',borderRadius:10,border:'none',background:currentUser?.id===u.id?'rgba(249,115,22,.1)':'transparent',color:currentUser?.id===u.id?'var(--primary)':'#ccc',cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'DM Sans',display:'flex',alignItems:'center',gap:8}}>
+                                            <div style={{width:24,height:24,borderRadius:'50%',background:u.type==='creator'?'var(--primary)':u.type==='brand'?'var(--blue)':'var(--red)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:800,color:'#fff'}}>{u.avatar?.substring(0,2)}</div>
+                                            {u.name} <span style={{color:'var(--muted2)',fontSize:11,marginLeft:'auto'}}>({u.type})</span>
+                                        </button>
+                                    ))}
+                                    <div style={{height:1,background:'var(--border)',margin:'6px 0'}}/>
+                                    {currentUser?.type==='creator' && <button onClick={()=>{setShowUserMenu(false);nav('c-dash');}} style={{width:'100%',textAlign:'left',padding:'10px 12px',borderRadius:10,border:'none',background:'transparent',color:'#ccc',cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'DM Sans'}}>Creator Dashboard</button>}
+                                    {currentUser?.type==='brand' && <button onClick={()=>{setShowUserMenu(false);nav('b-dash');}} style={{width:'100%',textAlign:'left',padding:'10px 12px',borderRadius:10,border:'none',background:'transparent',color:'#ccc',cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'DM Sans'}}>Brand Dashboard</button>}
+                                    {currentUser?.type==='creator' && <button onClick={()=>{setShowUserMenu(false);nav('profile');}} style={{width:'100%',textAlign:'left',padding:'10px 12px',borderRadius:10,border:'none',background:'transparent',color:'#ccc',cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'DM Sans'}}>My Profile</button>}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            {/* ─── PAGES ─── */}
+            <div onClick={()=>{setShowNotifs(false);setShowUserMenu(false);}}>
+                {view==='home' && <HomePage nav={nav} campaigns={db.campaigns}/>}
+                {view==='discover' && <DiscoverPage campaigns={db.campaigns} currentUser={currentUser} onSubmit={handleSubmission}/>}
+                {view==='c-dash' && <CreatorDashPage db={db} user={currentUser?.type==='creator'?currentUser:db.users.find(u=>u.type==='creator')} syncDb={syncDb}/>}
+                {view==='b-dash' && <BrandDashPage db={db} user={currentUser?.type==='brand'?currentUser:db.users.find(u=>u.type==='brand')} syncDb={syncDb}/>}
+                {view==='how' && <HowItWorksPage/>}
+                {view==='verify' && <VerifyPage/>}
+                {view==='profile' && <CreatorProfilePage user={currentUser} db={db}/>}
+                {view==='admin' && <AdminPage db={db} syncDb={syncDb}/>}
+            </div>
+
+            {/* ─── FOOTER ─── */}
+            <footer style={{borderTop:'1px solid var(--border)',padding:'64px 24px',position:'relative',overflow:'hidden'}}>
+                <div style={{maxWidth:1100,margin:'0 auto',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:40,position:'relative',zIndex:1}}>
+                    <div>
+                        <div onClick={()=>nav('home')} style={{display:'flex',alignItems:'center',gap:8,marginBottom:16,cursor:'pointer'}}>
+                            <div style={{width:32,height:32,background:'var(--primary)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'"Bebas Neue",sans-serif',fontSize:14}}>SK</div>
+                            <span style={{fontFamily:'"Bebas Neue",sans-serif',fontSize:20,letterSpacing:3}}>SK KENYA</span>
+                        </div>
+                        <p style={{color:'var(--muted)',fontSize:14,lineHeight:1.7,maxWidth:280}}>Create, post and earn real money for posting clips on YouTube, TikTok & X in Kenya. Payments via M-Pesa.</p>
+                    </div>
+                    <div><h5 style={{fontFamily:'"Bebas Neue",sans-serif',fontSize:18,letterSpacing:2,marginBottom:16}}>Navigation</h5><ul style={{listStyle:'none',display:'flex',flexDirection:'column',gap:10,fontSize:14,color:'var(--muted)'}}>
+                        <li><a onClick={()=>nav('discover')} style={{cursor:'pointer',color:'inherit',textDecoration:'none'}}>Discover Campaigns</a></li>
+                        <li><a onClick={()=>nav('how')} style={{cursor:'pointer',color:'inherit',textDecoration:'none'}}>How It Works</a></li>
+                        <li><a onClick={()=>nav('verify')} style={{cursor:'pointer',color:'inherit',textDecoration:'none'}}>Get Verified</a></li>
+                    </ul></div>
+                    <div><h5 style={{fontFamily:'"Bebas Neue",sans-serif',fontSize:18,letterSpacing:2,marginBottom:16}}>Legal</h5><ul style={{listStyle:'none',display:'flex',flexDirection:'column',gap:10,fontSize:14,color:'var(--muted)'}}>
+                        <li>Terms of Service</li><li>Privacy Policy</li><li>Brand Guidelines</li>
+                    </ul></div>
+                </div>
+                <div style={{maxWidth:1100,margin:'40px auto 0',paddingTop:24,borderTop:'1px solid var(--border)',textAlign:'center',fontSize:13,color:'var(--muted2)'}}>SK Kenya © 2026 · All rights reserved.</div>
+                <div style={{position:'absolute',bottom:'-8vw',left:0,right:0,textAlign:'center',fontFamily:'"Bebas Neue",sans-serif',fontSize:'22vw',lineHeight:1,color:'rgba(249,115,22,.04)',pointerEvents:'none',userSelect:'none',zIndex:0}}>SK KENYA</div>
+            </footer>
+
+            {/* Responsive nav links hide */}
+            <style>{`@media(max-width:768px){.nav-links{display:none !important;}}`}</style>
+        </div>
+    );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

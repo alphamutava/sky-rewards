@@ -23,12 +23,13 @@ export async function POST(request: Request) {
 
     // Mark transaction as failed and refund
     if (body.Result?.OriginatorConversationID) {
-      const processingTxs = await prisma.transaction.findMany({
-        where: { status: "PROCESSING", type: "WITHDRAWAL", method: "MPESA_B2C" },
-      });
-      const pendingTx = processingTxs.find((tx) => {
-        const meta = tx.metadata as any;
-        return meta?.conversationId === body.Result.OriginatorConversationID;
+      const pendingTx = await prisma.transaction.findFirst({
+        where: {
+          status: "PROCESSING",
+          type: "WITHDRAWAL",
+          method: "MPESA_B2C",
+          mpesaRequestId: body.Result.OriginatorConversationID,
+        },
       });
 
       if (pendingTx) {

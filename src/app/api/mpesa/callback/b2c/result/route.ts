@@ -28,13 +28,14 @@ export async function POST(request: Request) {
       },
     });
 
-    // Find processing withdrawal by conversationId in metadata
-    const processingTxs = await prisma.transaction.findMany({
-      where: { status: "PROCESSING", type: "WITHDRAWAL", method: "MPESA_B2C" },
-    });
-    const pendingTx = processingTxs.find((tx) => {
-      const meta = tx.metadata as any;
-      return meta?.conversationId === Result.OriginatorConversationID;
+    // Find processing withdrawal by conversationId
+    const pendingTx = await prisma.transaction.findFirst({
+      where: {
+        status: "PROCESSING",
+        type: "WITHDRAWAL",
+        method: "MPESA_B2C",
+        mpesaRequestId: Result.ConversationID,
+      },
     });
 
     if (!pendingTx) {

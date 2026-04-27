@@ -1,3 +1,5 @@
+import { withSentryConfig } from "@sentry/nextjs";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: {
@@ -19,6 +21,22 @@ const nextConfig = {
       ],
     },
   ],
+  experimental: {
+    instrumentationHook: true,
+  },
 };
 
-export default nextConfig;
+export default withSentryConfig(
+  nextConfig,
+  {
+    silent: true,
+    org: "sky-kenya",
+    project: "sky-kenya-web",
+  },
+  {
+    widenClientFileUpload: true,
+    transpileClientSDK: true,
+    hideSourceMaps: true,
+    disableLogger: true,
+  }
+);

@@ -1,0 +1,19 @@
+2026-04-24 01:00:08.724 EAT [36220] LOG:  starting PostgreSQL 18.3 on x86_64-windows, compiled by msvc-19.44.35222, 64-bit
+2026-04-24 01:00:08.729 EAT [36220] LOG:  listening on IPv6 address "::1", port 51214
+2026-04-24 01:00:08.729 EAT [36220] LOG:  listening on IPv4 address "127.0.0.1", port 51214
+2026-04-24 01:00:08.931 EAT [1968] LOG:  database system was shut down at 2026-04-24 00:59:46 EAT
+2026-04-24 01:00:08.945 EAT [36220] LOG:  database system is ready to accept connections
+2026-04-24 01:05:08.803 EAT [37576] LOG:  checkpoint starting: time
+2026-04-24 01:05:27.838 EAT [37576] LOG:  checkpoint complete: wrote 171 buffers (1.0%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=18.740 s, sync=0.252 s, total=19.035 s; sync files=126, longest=0.014 s, average=0.002 s; distance=1189 kB, estimate=1189 kB; lsn=0/191A618, redo lsn=0/191A5C0
+2026-04-24 01:20:08.920 EAT [37576] LOG:  checkpoint starting: time
+2026-04-24 01:20:10.083 EAT [37576] LOG:  checkpoint complete: wrote 10 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=1.112 s, sync=0.023 s, total=1.163 s; sync files=11, longest=0.007 s, average=0.003 s; distance=16 kB, estimate=1071 kB; lsn=0/191E948, redo lsn=0/191E8F0
+2026-04-24 01:25:08.093 EAT [37576] LOG:  checkpoint starting: time
+2026-04-24 01:25:08.230 EAT [37576] LOG:  checkpoint complete: wrote 1 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.109 s, sync=0.007 s, total=0.138 s; sync files=2, longest=0.005 s, average=0.004 s; distance=2 kB, estimate=964 kB; lsn=0/191F208, redo lsn=0/191F1B0
+2026-04-24 01:45:08.272 EAT [37576] LOG:  checkpoint starting: time
+2026-04-24 01:45:10.740 EAT [37576] LOG:  checkpoint complete: wrote 22 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=2.410 s, sync=0.032 s, total=2.469 s; sync files=17, longest=0.004 s, average=0.002 s; distance=9 kB, estimate=869 kB; lsn=0/1921930, redo lsn=0/19218D8
+2026-04-24 01:50:08.756 EAT [37576] LOG:  checkpoint starting: time
+2026-04-24 01:50:09.035 EAT [37576] LOG:  checkpoint complete: wrote 2 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.220 s, sync=0.015 s, total=0.280 s; sync files=3, longest=0.009 s, average=0.005 s; distance=6 kB, estimate=783 kB; lsn=0/19231B8, redo lsn=0/1923160
+2026-04-24 01:55:08.048 EAT [37576] LOG:  checkpoint starting: time
+2026-04-24 01:55:10.132 EAT [37576] LOG:  checkpoint complete: wrote 19 buffers (0.1%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=2.055 s, sync=0.018 s, total=2.084 s; sync files=13, longest=0.003 s, average=0.002 s; distance=14 kB, estimate=706 kB; lsn=0/1926C78, redo lsn=0/1926C20
+2026-04-24 03:45:08.337 EAT [37576] LOG:  checkpoint starting: time
+2026-04-24 03:45:08.494 EAT [37576] LOG:  checkpoint complete: wrote 1 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.117 s, sync=0.008 s, total=0.158 s; sync files=2, longest=0.006 s, average=0.004 s; distance=3 kB, estimate=635 kB; lsn=0/19278D8, redo lsn=0/1927880

@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { withErrorHandler, AuthorizationError, NotFoundError, ConflictError } from "@/lib/api-error";
+import { withErrorHandler, AuthorizationError, NotFoundError, ConflictError, ValidationError } from "@/lib/api-error";
 import { generateReference } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export const POST = withErrorHandler(async (_req: Request, context) => {
   const budget = campaign.totalBudget.toNumber();
   const balance = user.walletBalance.toNumber();
   if (balance < budget) {
-    throw new Error("Insufficient wallet balance. Please deposit funds first.");
+    throw new ValidationError("Insufficient wallet balance. Please deposit funds first.");
   }
 
   await prisma.$transaction(async (tx) => {

@@ -33,15 +33,28 @@ const createCampaignSchema = z.object({
 export const GET = withErrorHandler(async (req: Request) => {
   const url = new URL(req.url);
 
-  const page = parseInt(url.searchParams.get("page") || "1");
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "12"), 50);
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1") || 1);
+  const limit = Math.min(Math.max(1, parseInt(url.searchParams.get("limit") || "12") || 12), 50);
   const search = url.searchParams.get("search") || "";
   const type = url.searchParams.get("type");
   const county = url.searchParams.get("county");
   const tag = url.searchParams.get("tag");
   const sort = url.searchParams.get("sort") || "newest";
+  const mine = url.searchParams.get("mine");
 
-  const where: Record<string, unknown> = { status: "ACTIVE" };
+  const where: Record<string, unknown> = {};
+
+  // If mine=true, show all campaigns by current user (any status)
+  if (mine === "true") {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) {
+      where.advertiserId = session.user.id;
+    } else {
+      where.status = "ACTIVE";
+    }
+  } else {
+    where.status = "ACTIVE";
+  }
 
   if (search) {
     where.OR = [

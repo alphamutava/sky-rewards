@@ -1,0 +1,83 @@
+openapi: 3.0.0
+info:
+  title: Sky Kenya API
+  version: 1.0.0
+  description: Internal API for Sky Kenya - Creator Rewards and Brand Campaigns Platform. Note that this API is actively being versioned to /api/v1.
+servers:
+  - url: /api/v1
+    description: Production API
+  - url: /api
+    description: Legacy API (Deprecated)
+
+components:
+  securitySchemes:
+    nextAuth:
+      type: apiKey
+      name: session-token
+      in: cookie
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+
+paths:
+  /wallet/withdraw:
+    post:
+      summary: Withdraw funds to M-Pesa
+      description: Initiates a B2C payout from the platform wallet to the user's M-Pesa number. Must include Idempotency-Key.
+      security:
+        - nextAuth: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema:
+            type: string
+          required: true
+          description: Unique key to prevent duplicate withdrawals
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - amount
+              properties:
+                amount:
+                  type: number
+                  minimum: 100
+      responses:
+        '200':
+          description: Withdrawal successfully queued
+        '400':
+          description: Insufficient balance
+        '429':
+          description: Rate limit exceeded
+        '500':
+          description: Internal error
+
+  /mpesa/callback/b2c/result:
+    post:
+      summary: Safaricom B2C Result Callback
+      description: Receives asynchronous payment completion status from Safaricom.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Callback processed successfully

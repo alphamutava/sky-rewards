@@ -33,19 +33,18 @@ export const POST = withErrorHandler(async (req: Request) => {
 
   const { amount, phoneNumber } = result.data;
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { walletBalance: true },
-  });
-  if (!user) throw new NotFoundError("User");
-
-  if (Number(user.walletBalance) < amount) throw new InsufficientFundsError();
-
   const reference = generateReference();
   const conversationId = `SKY-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  // Deduct from wallet and create transaction atomically
+  // Deduct from wallet and create transaction atomically (balance check inside tx to prevent race)
   await prisma.$transaction(async (tx) => {
+    const user = await tx.user.findUnique({
+      where: { id: session.user.id },
+      select: { walletBalance: true },
+    });
+    if (!user) throw new NotFoundError("User");
+    if (Number(user.walletBalance) < amount) throw new InsufficientFundsError();
+
     await tx.user.update({
       where: { id: session.user.id },
       data: {
@@ -64,6 +63,7 @@ export const POST = withErrorHandler(async (req: Request) => {
         fee: 0,
         netAmount: amount,
         referenceCode: reference,
+        mpesaRequestId: conversationId,
         transactionDesc: `M-Pesa withdrawal of KES ${amount.toLocaleString()} to ${phoneNumber}`,
         phoneNumber,
         metadata: { conversationId },

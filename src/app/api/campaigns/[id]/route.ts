@@ -8,16 +8,38 @@ export const dynamic = "force-dynamic";
 
 export const GET = withErrorHandler(async (_req: Request, context) => {
   const { id } = context!.params;
+  const session = await getServerSession(authOptions);
 
   const campaign = await prisma.campaign.findUnique({
     where: { id },
     include: {
       advertiser: { select: { id: true, displayName: true, avatar: true, bio: true } },
       _count: { select: { submissions: true } },
+      // Include submissions for campaign owner or admin
+      submissions: (session?.user?.id)
+        ? {
+            select: {
+              id: true, title: true, mediaUrl: true, mediaType: true, status: true,
+              viewCount: true, createdAt: true,
+              creator: { select: { id: true, displayName: true, avatar: true } },
+            },
+            orderBy: { createdAt: "desc" as const },
+            take: 50,
+          }
+        : false,
     },
   });
 
   if (!campaign) throw new NotFoundError("Campaign");
+
+  // Strip submissions if requester is not the owner or admin
+  const role = (session?.user?.role as string) || "";
+  const isOwner = session?.user?.id === campaign.advertiserId;
+  const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(role);
+  if (!isOwner && !isAdmin) {
+    const { submissions, ...rest } = campaign as any;
+    return Response.json({ campaign: rest });
+  }
 
   return Response.json({ campaign });
 });

@@ -14,7 +14,8 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const rawCallback = searchParams.get("callbackUrl") || "/dashboard";
+  const callbackUrl = rawCallback.startsWith("/") && !rawCallback.startsWith("//") ? rawCallback : "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -46,73 +47,74 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-bg px-4 font-sans animate-fade">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="text-2xl font-bold text-[#0D1B2A]">
-            Sky <span className="text-[#E63946]">Kenya</span>
+          <Link href="/" className="text-4xl font-display text-white">
+            Sky <span className="text-primary">Kenya</span>
           </Link>
         </div>
 
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Welcome Back</CardTitle>
-            <CardDescription>Sign in to your account</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <Link href="/forgot-password" className="text-xs text-[#E63946] hover:underline">
-                    Forgot password?
-                  </Link>
-                </div>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Sign In
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center text-sm text-gray-500">
-              Don&apos;t have an account?{" "}
-              <Link href="/register" className="text-[#E63946] font-medium hover:underline">
-                Create one
-              </Link>
+        <div className="bg-card border border-border rounded-3xl p-8 shadow-2xl">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-display mb-2">Welcome Back</h1>
+            <p className="text-muted text-sm font-medium">Sign in to your account</p>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-[11px] font-bold text-muted uppercase tracking-[1.5px]">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full bg-[#050505] border-border rounded-xl px-4 py-6 text-white text-[15px] outline-none"
+              />
             </div>
-          </CardContent>
-        </Card>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-[11px] font-bold text-muted uppercase tracking-[1.5px]">Password</Label>
+                <Link href="/forgot-password" className="text-xs text-primary hover:text-primaryHover transition-colors font-bold">
+                  Forgot password?
+                </Link>
+              </div>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full bg-[#050505] border-border rounded-xl px-4 py-6 text-white text-[15px] outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full bg-primary hover:bg-primaryHover text-white font-bold rounded-xl py-6 text-lg transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] mt-4" disabled={loading}>
+              {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
+              Sign In
+            </Button>
+          </form>
+
+          <div className="mt-8 text-center text-sm font-medium text-muted">
+            Don&apos;t have an account?{" "}
+            <Link href="/register" className="text-primary hover:text-primaryHover transition-colors ml-1">
+              Create one
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -69,12 +69,14 @@ export function handleApiError(error: unknown): Response {
   if (error instanceof AppError) {
     const response: any = {
       success: false,
-      error: error.message,
-      code: error.code,
+      error: {
+        message: error.message,
+        code: error.code,
+      }
     }
     
     if (error instanceof ValidationError && error.details) {
-      response.details = error.details
+      response.error.details = error.details
     }
     
     return new Response(JSON.stringify(response), {
@@ -93,9 +95,11 @@ export function handleApiError(error: unknown): Response {
     return new Response(
       JSON.stringify({
         success: false,
-        error: `${field}: ${message}`,
-        code: 'VALIDATION_ERROR',
-        details: zodError.issues,
+        error: {
+          message: `${field}: ${message}`,
+          code: 'VALIDATION_ERROR',
+          details: zodError.issues,
+        }
       }),
       {
         status: 400,
@@ -109,8 +113,10 @@ export function handleApiError(error: unknown): Response {
   return new Response(
     JSON.stringify({
       success: false,
-      error: 'Internal server error',
-      code: 'INTERNAL_ERROR',
+      error: {
+        message: 'Internal server error',
+        code: 'INTERNAL_ERROR',
+      }
     }),
     {
       status: 500,

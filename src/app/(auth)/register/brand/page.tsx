@@ -60,47 +60,48 @@ export default function RegisterBrandPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-bg px-4 font-sans animate-fade">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="text-2xl font-bold text-[#0D1B2A]">
-            Sky <span className="text-[#E63946]">Kenya</span>
+          <Link href="/" className="text-4xl font-display text-white">
+            Sky <span className="text-primary">Kenya</span>
           </Link>
         </div>
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Create Brand Account</CardTitle>
-            <CardDescription>Launch campaigns and reach millions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Business Email</Label>
-                <Input id="email" type="email" placeholder="you@company.co.ke" value={form.email} onChange={(e) => update("email", e.target.value)} required />
+        <div className="bg-card border border-border rounded-3xl p-8 shadow-2xl">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-display mb-2 text-white">Create Brand Account</h1>
+            <p className="text-muted text-sm font-medium">Launch campaigns and reach millions</p>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-[11px] font-bold text-muted uppercase tracking-[1.5px]">Business Email</Label>
+              <Input id="email" type="email" placeholder="you@company.co.ke" value={form.email} onChange={(e) => update("email", e.target.value)} required
+                className="w-full bg-[#050505] border-border rounded-xl px-4 py-6 text-white text-[15px] outline-none" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-[11px] font-bold text-muted uppercase tracking-[1.5px]">Password</Label>
+              <div className="relative">
+                <Input id="password" type={showPassword ? "text" : "password"} placeholder="Min 8 chars, uppercase, number, special" value={form.password} onChange={(e) => update("password", e.target.value)} required
+                  className="w-full bg-[#050505] border-border rounded-xl px-4 py-6 text-white text-[15px] outline-none" />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-white transition-colors">
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input id="password" type={showPassword ? "text" : "password"} placeholder="Min 8 chars, uppercase, number, special" value={form.password} onChange={(e) => update("password", e.target.value)} required />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input id="confirmPassword" type="password" placeholder="Repeat your password" value={form.confirmPassword} onChange={(e) => update("confirmPassword", e.target.value)} required />
-              </div>
-              <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Create Brand Account
-              </Button>
-            </form>
-            <p className="mt-6 text-center text-sm text-gray-500">
-              Already have an account? <Link href="/login" className="text-[#E63946] font-medium hover:underline">Sign in</Link>
-            </p>
-          </CardContent>
-        </Card>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className="text-[11px] font-bold text-muted uppercase tracking-[1.5px]">Confirm Password</Label>
+              <Input id="confirmPassword" type="password" placeholder="Repeat your password" value={form.confirmPassword} onChange={(e) => update("confirmPassword", e.target.value)} required
+                className="w-full bg-[#050505] border-border rounded-xl px-4 py-6 text-white text-[15px] outline-none" />
+            </div>
+            <Button type="submit" className="w-full bg-white hover:bg-gray-100 text-[#0a0a0a] font-bold rounded-xl py-6 text-lg transition-all mt-4" disabled={loading}>
+              {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
+              Create Brand Account
+            </Button>
+          </form>
+          <p className="mt-8 text-center text-sm text-muted font-medium">
+            Already have an account? <Link href="/login" className="text-primary hover:text-primaryHover transition-colors font-bold">Sign in</Link>
+          </p>
+        </div>
       </div>
     </div>
   );

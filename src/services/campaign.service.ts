@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { redis } from '@/lib/redis'
 import { NotFoundError, ValidationError, ForbiddenError } from '@/lib/errors'
 import { slugify, generateReference } from '@/lib/utils'
 import type { CampaignType, CampaignStatus, Prisma } from '@prisma/client'
@@ -142,6 +143,12 @@ export class CampaignService {
       sortOrder = 'desc',
     } = filters
 
+    const cacheKey = `campaigns:list:${JSON.stringify(filters)}`
+    const cached = await redis.get(cacheKey)
+    if (cached) {
+      return JSON.parse(cached)
+    }
+
     const where: Prisma.CampaignWhereInput = {
       ...(status && { status }),
       ...(type && { type }),
@@ -172,13 +179,16 @@ export class CampaignService {
       prisma.campaign.count({ where }),
     ])
 
-    return {
+    const result = {
       campaigns,
       total,
       page,
       limit,
       totalPages: Math.ceil(total / limit),
     }
+
+    await redis.setex(cacheKey, 60, JSON.stringify(result))
+    return result
   }
 
   /**

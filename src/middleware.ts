@@ -1,14 +1,26 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { Redis } from "@upstash/redis";
 
-const publicPaths = ["/", "/login", "/register", "/about", "/the-100", "/api/auth", "/api/health", "/api/campaigns", "/api/elite", "/api/the-100", "/api/mpesa/callback", "/api/cron"];
+const publicPaths = ["/", "/login", "/register", "/about", "/the-100", "/api/auth", "/api/health", "/api/elite", "/api/the-100", "/api/mpesa/callback"];
 const authenticatedPaths = ["/dashboard", "/discover", "/submissions", "/earnings", "/wallet", "/badges", "/profile", "/notifications", "/campaigns"];
 const advertiserPaths = ["/brand"];
 const adminPaths = ["/admin"];
 
-// Rate limiting store (in production, use Redis)
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+const allowedOrigins = process.env.NODE_ENV === "production" 
+  ? ["https://skykenya.co.ke", "https://www.skykenya.co.ke"] 
+  : ["http://localhost:3000"];
+
+// Edge-compatible Redis for rate limiting
+const upstashRedis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN 
+  ? new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    })
+  : null;
+
+const memoryFallbackStore = new Map<string, { count: number; resetTime: number }>();
 
 function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -18,32 +30,53 @@ function getClientIp(request: NextRequest): string {
   return "unknown";
 }
 
-function checkRateLimit(identifier: string, maxRequests: number, windowMs: number): { allowed: boolean; remaining: number; resetTime: number } {
+async function checkRateLimit(identifier: string, maxRequests: number, windowSec: number): Promise<{ allowed: boolean; remaining: number }> {
+  if (upstashRedis) {
+    try {
+      const current = await upstashRedis.incr(identifier);
+      if (current === 1) {
+        await upstashRedis.expire(identifier, windowSec);
+      }
+      return { allowed: current <= maxRequests, remaining: Math.max(0, maxRequests - current) };
+    } catch (e) {
+      console.error("Upstash rate limit error:", e);
+    }
+  }
+
+  // Memory fallback
   const now = Date.now();
-  const record = rateLimitStore.get(identifier);
-  
+  const record = memoryFallbackStore.get(identifier);
   if (!record || now > record.resetTime) {
-    rateLimitStore.set(identifier, { count: 1, resetTime: now + windowMs });
-    return { allowed: true, remaining: maxRequests - 1, resetTime: now + windowMs };
+    memoryFallbackStore.set(identifier, { count: 1, resetTime: now + windowSec * 1000 });
+    return { allowed: true, remaining: maxRequests - 1 };
   }
-  
   if (record.count >= maxRequests) {
-    return { allowed: false, remaining: 0, resetTime: record.resetTime };
+    return { allowed: false, remaining: 0 };
   }
-  
   record.count++;
-  return { allowed: true, remaining: maxRequests - record.count, resetTime: record.resetTime };
+  return { allowed: true, remaining: maxRequests - record.count };
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const origin = request.headers.get("origin");
+
+  // Strict CORS
+  if (origin && !allowedOrigins.includes(origin)) {
+    return new NextResponse("Forbidden Origin", { status: 403 });
+  }
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.delete("x-middleware-subrequest");
+  
+  const correlationId = crypto.randomUUID();
+  requestHeaders.set("x-correlation-id", correlationId);
 
   const response = NextResponse.next({
     request: { headers: requestHeaders },
   });
+  
+  response.headers.set("X-Correlation-ID", correlationId);
 
   // Security headers
   response.headers.set("X-Frame-Options", "DENY");
@@ -58,6 +91,11 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // Public GET for campaign listing
+  if (pathname === "/api/campaigns" && request.method === "GET") {
+    return response;
+  }
+
   // API rate limiting
   if (pathname.startsWith("/api/")) {
     const ip = getClientIp(request);
@@ -65,13 +103,12 @@ export async function middleware(request: NextRequest) {
     
     // Stricter limits for auth routes
     const maxRequests = isAuthRoute ? 5 : 100;
-    const windowMs = isAuthRoute ? 15 * 60 * 1000 : 60 * 1000; // 15 min for auth, 1 min for others
+    const windowSec = isAuthRoute ? 900 : 60; // 15 min for auth, 1 min for others
     
-    const rateLimit = checkRateLimit(`${ip}:${pathname}`, maxRequests, windowMs);
+    const rateLimit = await checkRateLimit(`rl:${ip}:${pathname}`, maxRequests, windowSec);
     
     response.headers.set("X-RateLimit-Limit", maxRequests.toString());
-    response.headers.set("X-RateLimit-Remaining", Math.max(0, rateLimit.remaining).toString());
-    response.headers.set("X-RateLimit-Reset", Math.ceil(rateLimit.resetTime / 1000).toString());
+    response.headers.set("X-RateLimit-Remaining", rateLimit.remaining.toString());
     
     if (!rateLimit.allowed) {
       return Response.json(
@@ -81,14 +118,6 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Cron secret check
-  if (pathname.startsWith("/api/cron")) {
-    const secret = request.headers.get("x-cron-secret");
-    if (secret !== process.env.CRON_SECRET) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    return response;
-  }
 
   // Authentication
   const token = await getToken({

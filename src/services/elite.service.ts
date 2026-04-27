@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { redis } from '@/lib/redis'
 import { NotificationService } from './notification.service'
 import type { Prisma } from '@prisma/client'
 
@@ -103,6 +104,9 @@ export class EliteService {
       }
     }
 
+    // Invalidate caches
+    await redis.del('elite:100')
+
     return {
       updated: scoredCreators.length,
       promoted: promoted.length,
@@ -116,10 +120,13 @@ export class EliteService {
     }
   }
 
-  /**
-   * Get current Elite 100
-   */
   static async getElite100(): Promise<any> {
+    const cacheKey = 'elite:100'
+    const cached = await redis.get(cacheKey)
+    if (cached) {
+      return JSON.parse(cached)
+    }
+
     const elite = await prisma.user.findMany({
       where: { isElite: true },
       orderBy: { eliteRank: 'asc' },
@@ -136,6 +143,7 @@ export class EliteService {
       },
     })
 
+    await redis.setex(cacheKey, 3600, JSON.stringify(elite))
     return elite
   }
 

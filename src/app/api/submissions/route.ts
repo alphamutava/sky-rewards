@@ -25,8 +25,8 @@ export const GET = withErrorHandler(async (req: Request) => {
   if (!session) throw new AuthenticationError();
 
   const url = new URL(req.url);
-  const page = parseInt(url.searchParams.get("page") || "1");
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "12"), 50);
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1") || 1);
+  const limit = Math.min(Math.max(1, parseInt(url.searchParams.get("limit") || "12") || 12), 50);
   const status = url.searchParams.get("status");
   const campaignId = url.searchParams.get("campaignId");
 

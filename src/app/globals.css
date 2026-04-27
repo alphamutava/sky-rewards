@@ -3,39 +3,56 @@
 @tailwind utilities;
 
 :root {
-  --primary: #0D1B2A;
-  --secondary: #1B263B;
-  --accent: #E63946;
-  --success: #2D6A4F;
-  --warning: #E9C46A;
-  --bg-light: #F8F9FA;
-  --bg-card: #FFFFFF;
-  --text-primary: #1A1A2E;
-  --text-muted: #6B7280;
-  --border: #E5E7EB;
+  --bg: #0A0A0A;
+  --card: #141414;
+  --card2: #1a1a1a;
+  --border: #222222;
+  --border2: #333333;
+  --primary: #F97316;
+  --primary-hover: #ea580c;
+  --green: #10B981;
+  --red: #EF4444;
+  --yellow: #EAB308;
+  --blue: #3B82F6;
+  --text: #ffffff;
+  --muted: #888888;
+  --muted2: #666666;
 }
 
 @layer base {
-  * {
-    @apply border-gray-200;
-  }
   body {
-    @apply bg-gray-50 text-gray-900;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    background-color: var(--bg);
+    color: var(--text);
   }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 @layer utilities {
+  .animate-fade {
+    animation: fadeIn 0.4s ease-out;
+  }
+  .animate-slide {
+    animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .animate-pulse {
+    animation: pulse 2s infinite;
+  }
   .text-balance {
     text-wrap: balance;
   }
   .tabular-nums {
     font-variant-numeric: tabular-nums;
-  }
-  .gradient-primary {
-    @apply bg-gradient-to-r from-[#0D1B2A] to-[#1B263B];
-  }
-  .gradient-accent {
-    @apply bg-gradient-to-r from-[#E63946] to-[#c1121f];
   }
 }

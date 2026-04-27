@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useDeferredValue } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,12 +41,13 @@ export default function DiscoverPage() {
   const [type, setType] = useState("all");
   const [sort, setSort] = useState("newest");
   const [page, setPage] = useState(1);
+  const deferredSearch = useDeferredValue(search);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["campaigns", search, type, sort, page],
+    queryKey: ["campaigns", deferredSearch, type, sort, page],
     queryFn: () =>
       fetchCampaigns({
-        search,
+        search: deferredSearch,
         ...(type !== "all" ? { type } : {}),
         sort,
         page: page.toString(),
@@ -55,29 +56,29 @@ export default function DiscoverPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade">
       <div>
-        <h1 className="text-2xl font-bold text-[#0D1B2A]">Discover Campaigns</h1>
-        <p className="text-gray-500 mt-1">Find campaigns that match your niche and start earning</p>
+        <h1 className="text-5xl font-display text-white mb-2 tracking-wide uppercase">Discover Campaigns</h1>
+        <p className="text-muted text-lg font-medium">Browse live brand campaigns paying per view.</p>
       </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
           <Input
             placeholder="Search campaigns..."
-            className="pl-10"
+            className="pl-12 bg-card border-border text-white rounded-xl py-6 outline-none"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           />
         </div>
         <Select value={type} onValueChange={(v) => { setType(v); setPage(1); }}>
-          <SelectTrigger className="w-40">
-            <Filter className="w-4 h-4 mr-2" />
+          <SelectTrigger className="w-40 bg-card border-border text-white rounded-xl py-6">
+            <Filter className="w-4 h-4 mr-2 text-muted" />
             <SelectValue placeholder="Type" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-card border-border text-white rounded-xl">
             <SelectItem value="all">All Types</SelectItem>
             <SelectItem value="VIDEO">Video</SelectItem>
             <SelectItem value="PHOTO">Photo</SelectItem>
@@ -86,10 +87,10 @@ export default function DiscoverPage() {
           </SelectContent>
         </Select>
         <Select value={sort} onValueChange={(v) => { setSort(v); setPage(1); }}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-44 bg-card border-border text-white rounded-xl py-6">
             <SelectValue placeholder="Sort" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-card border-border text-white rounded-xl">
             <SelectItem value="newest">Newest First</SelectItem>
             <SelectItem value="highest_reward">Highest Reward</SelectItem>
             <SelectItem value="ending_soon">Ending Soon</SelectItem>
@@ -100,71 +101,77 @@ export default function DiscoverPage() {
       {/* Campaign Grid */}
       {isLoading ? (
         <div className="flex items-center justify-center h-40">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       ) : data?.data?.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <Search className="w-10 h-10 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">No campaigns found. Try adjusting your filters.</p>
+        <Card className="bg-card border-border rounded-3xl">
+          <CardContent className="py-20 text-center">
+            <Search className="w-12 h-12 text-border2 mx-auto mb-4" />
+            <p className="text-muted text-lg font-medium">No campaigns found. Try adjusting your filters.</p>
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {data?.data?.map((c: Campaign) => (
-              <Link key={c.id} href={`/campaigns/${c.id}`}>
-                <Card className="hover:shadow-lg transition h-full flex flex-col">
-                  <CardContent className="p-5 flex flex-col flex-1">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xs font-bold text-gray-500">
-                          {(c.advertiser?.displayName || "??").slice(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">{c.advertiser?.displayName || "Brand"}</p>
-                          <p className="text-xs text-gray-400">{c.type}</p>
+            {data?.data?.map((c: Campaign) => {
+              let parsedTags: string[] = [];
+              try { parsedTags = typeof c.tags === 'string' ? JSON.parse(c.tags) : c.tags; } catch(e) {}
+              
+              return (
+                <Link key={c.id} href={`/campaigns/${c.id}`}>
+                  <Card className="bg-card border-border hover:border-primary hover:-translate-y-1 transition-all duration-300 rounded-3xl h-full flex flex-col group overflow-hidden shadow-xl">
+                    <CardContent className="p-6 flex flex-col flex-1">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-black border border-border2 rounded-xl flex items-center justify-center text-xl font-display text-white">
+                            {(c.advertiser?.displayName || "??").slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-white">{c.advertiser?.displayName || "Brand"}</p>
+                            <p className="text-xs text-muted font-bold tracking-wider uppercase mt-1">{c.type}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <h3 className="font-semibold text-[#0D1B2A] mb-1 line-clamp-2">{c.title}</h3>
-                    <p className="text-sm text-gray-500 line-clamp-2 mb-3 flex-1">{c.description}</p>
+                      <h3 className="text-xl font-display text-white mb-2 line-clamp-2 leading-tight group-hover:text-primary transition-colors">{c.title}</h3>
+                      <p className="text-sm text-muted font-medium line-clamp-2 mb-4 flex-1">{c.description}</p>
 
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                      <Badge variant="default" className="text-[10px]">
-                        {c.type}
-                      </Badge>
-                      {c.tags?.map((tag: string) => (
-                        <Badge key={tag} variant="outline" className="text-[10px]">
-                          {tag}
+                      <div className="bg-[#050505] rounded-2xl p-4 border border-border/50 mb-4">
+                        <div className="font-display text-4xl text-primary leading-none">
+                          {formatKES(Number(c.rewardPerView))} <span className="text-sm text-muted font-sans font-normal tracking-wide">/view</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <Badge variant="outline" className="bg-white/5 border-white/10 text-muted font-bold uppercase tracking-wider text-[10px] px-2 py-1 rounded-md">
+                          {c.type}
                         </Badge>
-                      ))}
-                    </div>
+                        {parsedTags?.map((tag: string) => (
+                          <Badge key={tag} variant="outline" className="bg-white/5 border-white/10 text-muted font-bold uppercase tracking-wider text-[10px] px-2 py-1 rounded-md">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
 
-                    <div className="flex items-center justify-between text-sm border-t border-gray-100 pt-3 mt-auto">
-                      <div className="text-[#2D6A4F] font-bold tabular-nums">
-                        {formatKES(Number(c.rewardPerView))}<span className="text-xs font-normal text-gray-400">/view</span>
+                      <div className="flex items-center justify-between text-xs font-bold text-muted border-t border-border pt-4 mt-auto">
+                        <span className="flex items-center gap-1.5"><Users className="w-4 h-4 text-primary" /> {c._count?.submissions || 0} subs</span>
+                        <span className="flex items-center gap-1.5"><Eye className="w-4 h-4 text-primary" /> {c.totalSubmissions}/{c.maxSubmissions}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-gray-400">
-                        <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {c._count?.submissions || 0}</span>
-                        <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {c.totalSubmissions}/{c.maxSubmissions}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
 
           {/* Pagination */}
           {data?.pagination?.totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-8">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+            <div className="flex items-center justify-center gap-4 mt-12">
+              <Button variant="outline" size="sm" className="bg-card border-border text-white hover:bg-border2 rounded-xl" disabled={page <= 1} onClick={() => setPage(page - 1)}>
                 Previous
               </Button>
-              <span className="text-sm text-gray-500">Page {page} of {data.pagination.totalPages}</span>
-              <Button variant="outline" size="sm" disabled={page >= data.pagination.totalPages} onClick={() => setPage(page + 1)}>
+              <span className="text-sm font-bold text-muted tracking-wider uppercase">Page {page} of {data.pagination.totalPages}</span>
+              <Button variant="outline" size="sm" className="bg-card border-border text-white hover:bg-border2 rounded-xl" disabled={page >= data.pagination.totalPages} onClick={() => setPage(page + 1)}>
                 Next
               </Button>
             </div>

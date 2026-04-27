@@ -106,20 +106,28 @@ export class ViewService {
       }
     }
 
-    // Create view record
-    const view = await prisma.view.create({
-      data: {
-        submissionId,
-        viewerId,
-        watchDuration,
-        completionPercent: new Prisma.Decimal(completionPercent),
-        earned,
-        ipAddress,
-        userAgent,
-        isValid,
-        flagReason: isValid ? null : 'Failed validation checks',
-      },
-    })
+    // Create view record (catch race condition on unique constraint)
+    let view;
+    try {
+      view = await prisma.view.create({
+        data: {
+          submissionId,
+          viewerId,
+          watchDuration,
+          completionPercent: new Prisma.Decimal(completionPercent),
+          earned,
+          ipAddress,
+          userAgent,
+          isValid,
+          flagReason: isValid ? null : 'Failed validation checks',
+        },
+      })
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictError('You have already viewed this content')
+      }
+      throw error
+    }
 
     // If valid and earned > 0, process rewards
     if (isValid && earned.greaterThan(0)) {

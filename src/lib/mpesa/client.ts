@@ -30,7 +30,7 @@ class MpesaClient {
     );
 
     this.token = data.access_token;
-    this.tokenExpiry = Date.now() + (parseInt(data.expires_in) - 60) * 1000;
+    this.tokenExpiry = Date.now() + (parseInt(data.expires_in || "3599") - 60) * 1000;
     return this.token;
   }
 

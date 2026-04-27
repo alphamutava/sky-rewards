@@ -64,17 +64,21 @@ export default function WalletPage() {
 
   const depositMutation = useMutation({
     mutationFn: async () => {
+      const amt = Number(depositAmount);
+      if (isNaN(amt) || amt < 1000) {
+        throw new Error("Minimum deposit is KES 1,000");
+      }
       const res = await fetch("/api/wallet/deposit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: parseInt(depositAmount), phoneNumber: depositPhone }),
+        body: JSON.stringify({ amount: amt, phoneNumber: depositPhone }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Deposit failed");
       return data;
     },
     onSuccess: (data) => {
-      toast.success(data.message);
+      toast.success(data.data?.message || "Deposit initiated successfully");
       setDepositAmount("");
       setDepositPhone("");
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
@@ -84,17 +88,21 @@ export default function WalletPage() {
 
   const withdrawMutation = useMutation({
     mutationFn: async () => {
+      const amt = Number(withdrawAmount);
+      if (isNaN(amt) || amt < 100) {
+        throw new Error("Minimum withdrawal is KES 100");
+      }
       const res = await fetch("/api/wallet/withdraw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: parseInt(withdrawAmount), phoneNumber: withdrawPhone }),
+        body: JSON.stringify({ amount: amt, phoneNumber: withdrawPhone }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Withdrawal failed");
       return data;
     },
     onSuccess: (data) => {
-      toast.success(data.message);
+      toast.success(data.data?.message || "Withdrawal initiated successfully");
       setWithdrawAmount("");
       setWithdrawPhone("");
       queryClient.invalidateQueries({ queryKey: ["wallet"] });

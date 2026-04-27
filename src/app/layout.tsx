@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Bebas_Neue, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "sonner";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const bebasNeue = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
+const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm" });
 
 export const metadata: Metadata = {
   title: "Sky Kenya — Get Paid to Create Content",
@@ -19,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased bg-gray-50 text-gray-900`}>
+      <body className={`${dmSans.variable} ${bebasNeue.variable} font-sans antialiased bg-[#0A0A0A] text-white`}>
         <Providers>
           {children}
           <Toaster richColors position="top-right" />
