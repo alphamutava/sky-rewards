@@ -2,22 +2,27 @@ import { Queue, Worker, QueueEvents } from "bullmq";
 import { redis } from "../lib/redis";
 import { logger } from "../lib/logger";
 
-export const payoutQueue = new Queue("payouts", { connection: redis });
-export const payoutQueueEvents = new QueueEvents("payouts", { connection: redis });
+// Only create queues if Redis is available
+export const payoutQueue = redis ? new Queue("payouts", { connection: redis }) : null;
+export const payoutQueueEvents = redis ? new QueueEvents("payouts", { connection: redis }) : null;
 
-export const cleanupQueue = new Queue("cleanup", { connection: redis });
-export const cleanupQueueEvents = new QueueEvents("cleanup", { connection: redis });
+export const cleanupQueue = redis ? new Queue("cleanup", { connection: redis }) : null;
+export const cleanupQueueEvents = redis ? new QueueEvents("cleanup", { connection: redis }) : null;
 
-export const campaignQueue = new Queue("campaigns", { connection: redis });
-export const campaignQueueEvents = new QueueEvents("campaigns", { connection: redis });
+export const campaignQueue = redis ? new Queue("campaigns", { connection: redis }) : null;
+export const campaignQueueEvents = redis ? new QueueEvents("campaigns", { connection: redis }) : null;
 
-export const eliteQueue = new Queue("elite", { connection: redis });
-export const eliteQueueEvents = new QueueEvents("elite", { connection: redis });
+export const eliteQueue = redis ? new Queue("elite", { connection: redis }) : null;
+export const eliteQueueEvents = redis ? new QueueEvents("elite", { connection: redis }) : null;
 
-export const reportQueue = new Queue("report", { connection: redis });
-export const reportQueueEvents = new QueueEvents("report", { connection: redis });
+export const reportQueue = redis ? new Queue("report", { connection: redis }) : null;
+export const reportQueueEvents = redis ? new QueueEvents("report", { connection: redis }) : null;
 
 export function createWorker(name: string, processor: any) {
+  if (!redis) {
+    logger.warn(`Cannot create worker ${name} - Redis not available`);
+    return null;
+  }
   const worker = new Worker(name, processor, { connection: redis });
 
   worker.on("completed", (job) => {
