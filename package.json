@@ -15,7 +15,7 @@
     "worker": "tsx src/worker.ts",
     "generate:sbom": "cyclonedx-npm --output-format JSON --output-file bom.json",
     "security:audit": "npm audit --audit-level=high",
-    "vercel-build": "prisma generate && next build",
+    "vercel-build": "npx prisma generate && next build",
     "test": "vitest run",
     "test:mutation": "stryker run"
   },
