@@ -5,7 +5,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   NEXTAUTH_URL: z.string().url().default("http://localhost:3000"),
   NEXTAUTH_SECRET: z.string().min(32),
-  REDIS_URL: z.string().url().default("redis://localhost:6379"),
+  REDIS_URL: z.string().url().optional(),
+  DISABLE_REDIS: z.preprocess((val) => val === "true", z.boolean()).default(false),
   
   MPESA_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
   MPESA_CONSUMER_KEY: z.string().optional(),
