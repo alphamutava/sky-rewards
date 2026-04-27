@@ -1,0 +1,13 @@
+{
+  "buildCommand": "npm run vercel-build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "build": {
+    "env": {
+      "PRISMA_CLI_BINARY_TARGETS": "debian-openssl-3.0.x"
+    }
+  }
+}
