@@ -1,7 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { createClient } from "@libsql/client";
 import { Pool } from "pg";
 import { encryptString, decryptString } from "./encryption";
 
@@ -10,16 +8,9 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  const connectionString = process.env.DATABASE_URL || "file:./dev.db";
-  let adapter: any;
-
-  if (connectionString.startsWith("postgres://") || connectionString.startsWith("postgresql://")) {
-    const pool = new Pool({ connectionString });
-    adapter = new PrismaPg(pool);
-  } else {
-    const libsql = createClient({ url: connectionString });
-    adapter = new PrismaLibSql(libsql);
-  }
+  const connectionString = process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:51214/template1?sslmode=disable";
+  const pool = new Pool({ connectionString });
+  const adapter = new PrismaPg(pool);
 
   const baseClient = new PrismaClient({
     adapter,
@@ -56,18 +47,22 @@ function createPrismaClient() {
       user: {
         async $allOperations({ operation, args, query }) {
           // Encrypt outgoing data
-          if (['create', 'update', 'upsert', 'createMany'].includes(operation) && args.data) {
-            const data: any = args.data;
-            if (data.phone && typeof data.phone === 'string') data.phone = encryptString(data.phone);
-            if (data.email && typeof data.email === 'string') data.email = encryptString(data.email);
-            if (data.nationalId && typeof data.nationalId === 'string') data.nationalId = encryptString(data.nationalId);
+          if (['create', 'update', 'upsert', 'createMany'].includes(operation)) {
+            const data = (args as { data?: any }).data;
+            if (data) {
+              if (data.phone && typeof data.phone === 'string') data.phone = encryptString(data.phone);
+              if (data.email && typeof data.email === 'string') data.email = encryptString(data.email);
+              if (data.nationalId && typeof data.nationalId === 'string') data.nationalId = encryptString(data.nationalId);
+            }
           }
           // Encrypt searchable queries
-          if (['findUnique', 'findFirst', 'findMany', 'update', 'delete'].includes(operation) && args.where) {
-            const where: any = args.where;
-            if (where.phone && typeof where.phone === 'string') where.phone = encryptString(where.phone);
-            if (where.email && typeof where.email === 'string') where.email = encryptString(where.email);
-            if (where.nationalId && typeof where.nationalId === 'string') where.nationalId = encryptString(where.nationalId);
+          if (['findUnique', 'findFirst', 'findMany', 'update', 'delete'].includes(operation)) {
+            const where = (args as { where?: any }).where;
+            if (where) {
+              if (where.phone && typeof where.phone === 'string') where.phone = encryptString(where.phone);
+              if (where.email && typeof where.email === 'string') where.email = encryptString(where.email);
+              if (where.nationalId && typeof where.nationalId === 'string') where.nationalId = encryptString(where.nationalId);
+            }
           }
           return query(args);
         },
