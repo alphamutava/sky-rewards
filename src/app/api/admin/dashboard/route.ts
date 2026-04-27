@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { withErrorHandler, AuthorizationError } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 export const GET = withErrorHandler(async () => {
   const session = await getServerSession(authOptions);

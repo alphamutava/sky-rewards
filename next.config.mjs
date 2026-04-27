@@ -2,6 +2,8 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
+  staticPageGenerationTimeout: 1000,
   typescript: {
     // Skip type checking during build; IDE still shows errors
     ignoreBuildErrors: true,
