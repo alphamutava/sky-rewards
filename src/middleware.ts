@@ -8,8 +8,8 @@ const authenticatedPaths = ["/dashboard", "/discover", "/submissions", "/earning
 const advertiserPaths = ["/brand"];
 const adminPaths = ["/admin"];
 
-const allowedOrigins = process.env.NODE_ENV === "production" 
-  ? ["https://skykenya.co.ke", "https://www.skykenya.co.ke", "https://sky-rewards-seven.vercel.app"] 
+const allowedOrigins = process.env.NODE_ENV === "production"
+  ? ["https://skykenya.co.ke", "https://www.skykenya.co.ke", "https://sky-rewards-seven.vercel.app", "https://www.skycontentrewards.com"]
   : ["http://localhost:3000"];
 
 // Edge-compatible Redis for rate limiting
