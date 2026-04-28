@@ -20,8 +20,15 @@ class MpesaClient {
       return this.token;
     }
 
+    const consumerKey = process.env.MPESA_CONSUMER_KEY;
+    const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
+
+    if (!consumerKey || !consumerSecret) {
+      throw new Error("Missing M-Pesa Consumer Key or Secret");
+    }
+
     const auth = Buffer.from(
-      `${process.env.MPESA_CONSUMER_KEY}:${process.env.MPESA_CONSUMER_SECRET}`
+      `${consumerKey}:${consumerSecret}`
     ).toString("base64");
 
     const { data } = await this.client.get<MpesaTokenResponse>(
@@ -52,12 +59,19 @@ class MpesaClient {
     accountReference: string;
     transactionDesc: string;
   }): Promise<STKPushResponse> {
+    // Check env vars
+    const shortcode = process.env.MPESA_SHORTCODE;
+    const passkey = process.env.MPESA_PASSKEY;
+    const callbackBaseUrl = process.env.MPESA_CALLBACK_BASE_URL;
+    const callbackSecret = process.env.MPESA_CALLBACK_SECRET;
+
+    if (!shortcode || !passkey || !callbackBaseUrl) {
+      throw new Error(`Missing M-Pesa env vars: SHORTCODE=${!!shortcode}, PASSKEY=${!!passkey}, CALLBACK_BASE_URL=${!!callbackBaseUrl}`);
+    }
+
     const token = await this.getAccessToken();
     const timestamp = this.getTimestamp();
-    const shortcode = process.env.MPESA_SHORTCODE!;
-    const passkey = process.env.MPESA_PASSKEY!;
     const password = Buffer.from(`${shortcode}${passkey}${timestamp}`).toString("base64");
-    const callbackSecret = process.env.MPESA_CALLBACK_SECRET;
 
     const { data } = await this.client.post<STKPushResponse>(
       "/mpesa/stkpush/v1/processrequest",

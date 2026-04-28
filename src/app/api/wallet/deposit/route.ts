@@ -13,6 +13,19 @@ export const POST = withErrorHandler(async (req: Request) => {
   const session = await getServerSession(authOptions);
   if (!session) throw new AuthenticationError();
 
+  // Check M-Pesa env vars early
+  const requiredEnvVars = [
+    'MPESA_CONSUMER_KEY',
+    'MPESA_CONSUMER_SECRET',
+    'MPESA_SHORTCODE',
+    'MPESA_PASSKEY',
+    'MPESA_CALLBACK_BASE_URL'
+  ];
+  const missing = requiredEnvVars.filter(v => !process.env[v]);
+  if (missing.length > 0) {
+    throw new Error(`Missing M-Pesa env vars: ${missing.join(', ')}`);
+  }
+
   const rateCheck = await checkRateLimit(depositLimiter, `deposit:${session.user.id}`);
   if (!rateCheck.allowed) {
     throw new ValidationError("Too many deposit attempts. Please wait a few minutes.");
@@ -28,12 +41,18 @@ export const POST = withErrorHandler(async (req: Request) => {
   const reference = generateReference();
 
   // Initiate M-Pesa STK Push
-  const stkResponse = await mpesaClient.stkPush({
-    phoneNumber,
-    amount,
-    accountReference: reference,
-    transactionDesc: `Sky Kenya Deposit - ${reference}`,
-  });
+  let stkResponse;
+  try {
+    stkResponse = await mpesaClient.stkPush({
+      phoneNumber,
+      amount,
+      accountReference: reference,
+      transactionDesc: `Sky Kenya Deposit - ${reference}`,
+    });
+  } catch (error: any) {
+    console.error('STK Push error:', error.message);
+    throw new Error(`M-Pesa STK Push failed: ${error.message}`);
+  }
 
   // Create pending transaction via service
   await WalletService.createPendingTransaction({
